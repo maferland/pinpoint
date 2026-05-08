@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { finalizeReview } from "./api.ts";
+import { finalizeReview, getPreferences, savePreferences } from "./api.ts";
 
-const AUTO_CLOSE_KEY = "pinpoint:autoCloseAfterDone";
 const AUTO_CLOSE_DELAY_MS = 3000;
 
 interface ToolbarProps {
@@ -27,14 +26,25 @@ const MoonIcon = () => (
 
 export function Toolbar({ reviewId, annotationCount, context, theme, onThemeToggle }: ToolbarProps) {
   const [doneState, setDoneState] = useState<"idle" | "sending" | "sent">("idle");
-  const [autoClose, setAutoClose] = useState<boolean>(() => {
-    try { return localStorage.getItem(AUTO_CLOSE_KEY) === "1"; } catch { return false; }
-  });
+  const [autoClose, setAutoClose] = useState<boolean>(false);
+  const [prefsLoaded, setPrefsLoaded] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(0);
 
   useEffect(() => {
-    try { localStorage.setItem(AUTO_CLOSE_KEY, autoClose ? "1" : "0"); } catch {}
-  }, [autoClose]);
+    let cancelled = false;
+    getPreferences()
+      .then((prefs) => { if (!cancelled) setAutoClose(prefs.autoCloseAfterDone); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setPrefsLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const onAutoCloseToggle = (next: boolean) => {
+    setAutoClose(next);
+    savePreferences({ autoCloseAfterDone: next }).catch((err) => {
+      console.error("savePreferences failed:", err);
+    });
+  };
 
   useEffect(() => {
     if (doneState !== "sent" || !autoClose) return;
@@ -80,9 +90,10 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
       >
         <input
           type="checkbox"
-          className="accent-primary cursor-pointer"
+          className="accent-primary cursor-pointer disabled:opacity-50"
           checked={autoClose}
-          onChange={(e) => setAutoClose(e.target.checked)}
+          disabled={!prefsLoaded}
+          onChange={(e) => onAutoCloseToggle(e.target.checked)}
         />
         Auto-close
       </label>

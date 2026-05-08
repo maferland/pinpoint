@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import { FileReviewStore } from "./store.js";
+import { PreferencesStore } from "./preferences.js";
 import { createHttpServer, type PinpointHttpServer } from "./main.js";
 import type { PinpointAnnotation, PinpointReview } from "./types.js";
 
@@ -29,12 +30,15 @@ function makeReview(id: string, overrides?: Partial<PinpointReview>): PinpointRe
   };
 }
 
+let prefs: PreferencesStore;
+
 beforeAll(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-http-test-"));
   store = new FileReviewStore(dir);
   fs.writeFileSync(path.join(dir, "test.png"), TEST_PNG);
+  prefs = new PreferencesStore(path.join(dir, "preferences.json"));
 
-  pinpointServer = createHttpServer(store, 0);
+  pinpointServer = createHttpServer(store, 0, prefs);
   await new Promise<void>((resolve) => pinpointServer.server.on("listening", resolve));
   const addr = pinpointServer.server.address();
   const port = typeof addr === "object" && addr ? addr.port : 0;
@@ -135,6 +139,46 @@ describe("createHttpServer", () => {
       await store.save(makeReview("finalize-noop"));
       const res = await fetch(`${baseUrl}/api/review/finalize-noop/finalize`, { method: "POST" });
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("/api/preferences", () => {
+    it("GET returns defaults when no file exists", async () => {
+      const res = await fetch(`${baseUrl}/api/preferences`);
+      expect(res.status).toBe(200);
+      const data = await res.json() as { autoCloseAfterDone: boolean };
+      expect(data.autoCloseAfterDone).toBe(false);
+    });
+
+    it("PUT persists, GET reads back", async () => {
+      const put = await fetch(`${baseUrl}/api/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoCloseAfterDone: true }),
+      });
+      expect(put.status).toBe(200);
+      const get = await fetch(`${baseUrl}/api/preferences`);
+      const data = await get.json() as { autoCloseAfterDone: boolean };
+      expect(data.autoCloseAfterDone).toBe(true);
+
+      // Reset for other tests.
+      await fetch(`${baseUrl}/api/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoCloseAfterDone: false }),
+      });
+    });
+
+    it("PUT returns 400 for invalid JSON", async () => {
+      const res = await fetch(`${baseUrl}/api/preferences`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: "not json",
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("rejects unknown methods with 405", async () => {
+      const res = await fetch(`${baseUrl}/api/preferences`, { method: "POST" });
+      expect(res.status).toBe(405);
     });
   });
 
