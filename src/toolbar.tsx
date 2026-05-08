@@ -110,9 +110,11 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
         }`}
         onClick={doneState === "idle" ? sendDone : undefined}
         disabled={doneState !== "idle"}
-        title="Send annotations back to Claude"
+        title={annotationCount === 0 ? "Approve and close" : "Send annotations back to Claude"}
       >
-        {doneState === "idle" && "Done"}
+        {doneState === "idle" && (annotationCount === 0
+          ? "Looks good"
+          : `Send ${annotationCount} comment${annotationCount === 1 ? "" : "s"}`)}
         {doneState === "sending" && "Sending…"}
         {doneState === "sent" && (autoClose && countdown > 0
           ? `Sent — closing in ${countdown}s`

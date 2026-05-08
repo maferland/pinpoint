@@ -40,7 +40,7 @@ test("user pins, types, hits Done — cli returns annotation JSON and exits clea
 
   // Click Done.
   const tFinalize = Date.now();
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Send 1 comment" }).click();
   await expect(page.getByRole("button", { name: /Sent/ })).toBeVisible();
 
   // CLI exits and prints the JSON.
