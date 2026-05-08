@@ -69,9 +69,13 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
     <div className="h-11 flex items-center px-4 gap-3 bg-card border-b border-border shrink-0 select-none">
       <div className="flex items-center gap-2 mr-2">
         <div className="w-5 h-5 rounded-md bg-primary flex items-center justify-center">
-          <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-            <circle cx="5.5" cy="5.5" r="2" fill="white" />
-            <circle cx="5.5" cy="5.5" r="4.5" stroke="white" strokeWidth="1" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2c-4.4 0-8 3.6-8 8 0 5.6 8 12 8 12s8-6.4 8-12c0-4.4-3.6-8-8-8z" />
+            <circle cx="12" cy="10" r="2.5" />
+            <line x1="12" y1="6.25" x2="12" y2="7.5" />
+            <line x1="12" y1="12.5" x2="12" y2="13.75" />
+            <line x1="8.25" y1="10" x2="9.5" y2="10" />
+            <line x1="14.5" y1="10" x2="15.75" y2="10" />
           </svg>
         </div>
         <span className="text-[13px] font-semibold tracking-tight text-foreground">Pinpoint</span>
