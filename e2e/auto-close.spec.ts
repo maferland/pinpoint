@@ -23,7 +23,7 @@ test("Auto-close checkbox persists server-side and shows countdown after Done", 
   await expect(checkboxAfterReload).toBeChecked();
 
   // Click Done — button should display the countdown variant.
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Looks good" }).click();
   await expect(page.getByRole("button", { name: /Sent — closing in \ds/ })).toBeVisible();
 
   // CLI should still finalize cleanly even though the page is "self-closing".
@@ -37,7 +37,7 @@ test("Auto-close OFF — Done shows the static 'you can close this tab' label", 
   const checkbox = page.getByRole("checkbox", { name: "Auto-close" });
   await expect(checkbox).not.toBeChecked();
 
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Looks good" }).click();
   await expect(page.getByRole("button", { name: "Sent — you can close this tab" })).toBeVisible();
   await pinpointCli.finalized();
 });

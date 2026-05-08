@@ -28,7 +28,7 @@ test("clicking outside the popover saves the typed comment", async ({ page, pinp
   await expect(textarea).toBeHidden();
   await saved;
 
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Send 1 comment" }).click();
   const json = await pinpointCli.finalized();
   expect(json.annotations).toHaveLength(1);
   expect(json.annotations[0].comment).toBe("typed but not submitted");
@@ -56,7 +56,7 @@ test("Escape discards the typed draft", async ({ page, pinpointCli }) => {
   await expect(textarea).toBeHidden();
   await pinSaved;
 
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Send 1 comment" }).click();
   const json = await pinpointCli.finalized();
   // Pin was placed but its comment should be empty (Esc discards the draft).
   expect(json.annotations).toHaveLength(1);
