@@ -9,6 +9,7 @@ import http from "http";
 import path from "path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { FileReviewStore } from "./store.js";
+import { PreferencesStore, type Preferences } from "./preferences.js";
 import { createServer } from "./server.js";
 import { REVIEW_ID_RE } from "./util.js";
 import type { PinpointAnnotation } from "./types.js";
@@ -41,7 +42,7 @@ function json(res: http.ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
-export function createHttpServer(store: FileReviewStore, port: number): PinpointHttpServer {
+export function createHttpServer(store: FileReviewStore, port: number, prefs: PreferencesStore = new PreferencesStore()): PinpointHttpServer {
   const finalizeResolvers = new Map<string, () => void>();
   const routes: Record<string, RouteHandler> = {
     "GET /review": async (_id, _req, res) => {
@@ -115,6 +116,27 @@ export function createHttpServer(store: FileReviewStore, port: number): Pinpoint
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
     const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+
+    if (url.pathname === "/api/preferences") {
+      if (req.method === "GET") return json(res, 200, await prefs.load());
+      if (req.method === "PUT") {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += (chunk as Buffer).length;
+          if (size > MAX_BODY) return json(res, 413, { error: "Payload too large" });
+          chunks.push(chunk as Buffer);
+        }
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString()) as Partial<Preferences>;
+          return json(res, 200, await prefs.save(body));
+        } catch {
+          return json(res, 400, { error: "Invalid JSON" });
+        }
+      }
+      res.writeHead(405); res.end("Method not allowed"); return;
+    }
+
     const idMatch = url.pathname.match(REVIEW_ID_RE);
     if (!idMatch) { res.writeHead(404); res.end("Not found"); return; }
 

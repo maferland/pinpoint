@@ -35,31 +35,32 @@ screencapture -x /tmp/screenshot.png
 xcrun simctl io booted screenshot /tmp/screenshot.png
 ```
 
-### 2. Emit the slash command — no preamble
+### 2. Invoke pinpoint via Bash — DO NOT just emit `/pinpoint-review` as text
 
-Output ONLY the slash command line. No "Run this to...", no "click Done in the browser", no explanation. The user knows the flow.
+Plain text like `/pinpoint-review /tmp/foo.png` is just text — it doesn't run anything. To actually open the annotation UI you must call the `pinpoint` CLI through the Bash tool:
 
 ```
-/pinpoint-review /tmp/screenshot.png
+Bash(command="pinpoint review /tmp/screenshot.png --context 'Login page after auth changes — suspect spacing bug under .form-row'")
 ```
 
 Multiple images:
 
 ```
-/pinpoint-review /tmp/before.png /tmp/after.png
+Bash(command="pinpoint review /tmp/before.png /tmp/after.png --context '...'")
 ```
 
-With context (always include — describes what the user is reviewing and what you suspect):
+The Bash call:
+- prints the URL on stderr and opens the user's browser
+- blocks until the user clicks **Done** in the browser
+- prints the structured annotations as JSON on stdout
 
-```
-/pinpoint-review /tmp/screenshot.png --context "Login page after auth changes — suspect spacing bug under .form-row"
-```
+Always pass `--context` — it shows in the toolbar and orients the user.
 
-The slash command opens the browser, blocks until the user clicks **Done**, and returns the annotations directly into the conversation. You don't poll, wait, or call any tool — the output appears as part of the slash command's body.
+The user can also invoke the slash command `/pinpoint-review <image>...` themselves; the slash command is just a thin wrapper around the same CLI.
 
 ### 3. Read the returned JSON and act
 
-Output looks like:
+stdout looks like:
 
 ```json
 {
@@ -88,7 +89,7 @@ Classify intent (bug, change request, question, approval) yourself from the comm
 
 ### 4. Fix and iterate
 
-After making fixes, ask the user to re-run `/pinpoint-review` with a fresh screenshot.
+After making fixes, capture a fresh screenshot and call `pinpoint review` again.
 
 ## MCP fallback
 
@@ -99,11 +100,13 @@ There's also an MCP server (registered as `pinpoint`) exposing `create_review`, 
 - Always provide `--context` — it shows in the toolbar and helps the user orient
 - Coordinates are percentages — resolution-independent
 - The user can switch dark/light theme in the toolbar
+- The "Auto-close" preference is persisted across sessions in `~/.pinpoint/preferences.json`
 - Box-drag covers a region; click drops a pin at one point
 
 ## Do NOT
 
-- Don't add preamble around the slash command ("Run this to annotate", "then click Done in the browser") — emit the command bare
+- Don't emit `/pinpoint-review …` as plain text expecting it to run — it won't. Call `Bash(pinpoint review …)` instead.
+- Don't add preamble around the call ("Click Done in the browser when finished") — the user knows the flow
 - Don't tell the user to type "done" — clicking Done in the UI handles the handoff
-- Don't try to call MCP tools mid-review — the CLI blocks the conversation until Done
+- Don't try to call MCP tools mid-review — the Bash call blocks until Done
 - Don't guess what the user sees — let them annotate

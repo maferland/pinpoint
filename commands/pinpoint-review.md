@@ -1,7 +1,6 @@
 ---
 description: Annotate one or more images and return structured feedback
 allowed-tools: Bash(pinpoint:*)
-disable-model-invocation: true
 ---
 
 ## Pinpoint Annotations

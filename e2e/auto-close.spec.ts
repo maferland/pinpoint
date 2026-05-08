@@ -2,17 +2,20 @@ import { test, expect } from "./cli-fixture.ts";
 
 test.use({ pinpointContext: "auto-close" });
 
-test("Auto-close checkbox persists in localStorage and shows countdown after Done", async ({ page, pinpointCli }) => {
+test("Auto-close checkbox persists server-side and shows countdown after Done", async ({ page, pinpointCli }) => {
   await page.goto(pinpointCli.url);
 
   const checkbox = page.getByRole("checkbox", { name: "Auto-close" });
   await expect(checkbox).not.toBeChecked();
 
-  // Toggle on, verify localStorage is set.
+  // Toggle on, verify it round-trips through the /api/preferences endpoint.
   await checkbox.check();
   await expect(checkbox).toBeChecked();
-  const stored = await page.evaluate(() => localStorage.getItem("pinpoint:autoCloseAfterDone"));
-  expect(stored).toBe("1");
+  const stored = await page.evaluate(async () => {
+    const res = await fetch("/api/preferences");
+    return res.json();
+  });
+  expect(stored.autoCloseAfterDone).toBe(true);
 
   // Reload — checkbox should remember its state.
   await page.reload();

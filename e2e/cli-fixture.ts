@@ -66,8 +66,16 @@ export const test = base.extend<PinpointFixtures>({
     const args = ["review", imagePath, "--port", String(port)];
     if (pinpointContext) args.push("--context", pinpointContext);
 
+    // Isolate ~/.pinpoint/preferences.json per test run so the suite never
+    // touches the developer's real preferences file.
+    const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-home-"));
     const proc: ChildProcessWithoutNullStreams = spawn("node", [CLI_PATH, ...args], {
-      env: { ...process.env, PINPOINT_TEST_NO_OPEN: "1" },
+      env: {
+        ...process.env,
+        PINPOINT_TEST_NO_OPEN: "1",
+        HOME: fakeHome,
+        USERPROFILE: fakeHome,
+      },
     }) as ChildProcessWithoutNullStreams;
 
     let stdout = "";
@@ -110,6 +118,7 @@ export const test = base.extend<PinpointFixtures>({
     }
 
     fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(fakeHome, { recursive: true, force: true });
   },
 });
 

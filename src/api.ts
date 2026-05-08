@@ -36,3 +36,24 @@ export async function finalizeReview(reviewId: string): Promise<void> {
   const res = await fetch(url(`/api/review/${reviewId}/finalize`), { method: "POST" });
   if (!res.ok) throw new Error(`finalizeReview failed: ${res.status}`);
 }
+
+export interface Preferences {
+  autoCloseAfterDone: boolean;
+  theme?: "dark" | "light";
+}
+
+export async function getPreferences(): Promise<Preferences> {
+  const res = await fetch(url("/api/preferences"));
+  if (!res.ok) throw new Error(`getPreferences failed: ${res.status}`);
+  return res.json() as Promise<Preferences>;
+}
+
+export async function savePreferences(patch: Partial<Preferences>): Promise<Preferences> {
+  const res = await fetch(url("/api/preferences"), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`savePreferences failed: ${res.status}`);
+  return res.json() as Promise<Preferences>;
+}
