@@ -5,6 +5,8 @@ import path from "path";
 export interface Preferences {
   autoCloseAfterDone: boolean;
   theme?: "dark" | "light";
+  /** Tag of the latest release the user has dismissed the update banner for. */
+  dismissedUpdateVersion?: string;
 }
 
 const DEFAULTS: Preferences = { autoCloseAfterDone: false };

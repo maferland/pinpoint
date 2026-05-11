@@ -40,6 +40,7 @@ export async function finalizeReview(reviewId: string): Promise<void> {
 export interface Preferences {
   autoCloseAfterDone: boolean;
   theme?: "dark" | "light";
+  dismissedUpdateVersion?: string;
 }
 
 export async function getPreferences(): Promise<Preferences> {
