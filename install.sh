@@ -26,10 +26,20 @@ if ! command -v claude &>/dev/null; then
   exit 1
 fi
 
-# Clone or update
-if [ -d "$INSTALL_DIR" ]; then
+# Clone or update.
+# Three cases:
+#   1. ~/.pinpoint is a git clone → pull
+#   2. ~/.pinpoint exists but is NOT a git clone (e.g. old prefs-only dir from
+#      a previous pinpoint version) → stash to a timestamped backup and re-clone
+#   3. ~/.pinpoint does not exist → fresh clone
+if [ -d "$INSTALL_DIR/.git" ]; then
   echo -e "  ${DIM}Updating ${INSTALL_DIR}...${RESET}"
   git -C "$INSTALL_DIR" pull --quiet
+elif [ -d "$INSTALL_DIR" ]; then
+  BACKUP="${INSTALL_DIR}.bak.$(date +%Y%m%d%H%M%S)"
+  echo -e "  ${DIM}Found non-git directory at ${INSTALL_DIR}; moving to ${BACKUP} and re-cloning...${RESET}"
+  mv "$INSTALL_DIR" "$BACKUP"
+  git clone --quiet "$REPO" "$INSTALL_DIR"
 else
   echo -e "  ${DIM}Cloning to ${INSTALL_DIR}...${RESET}"
   git clone --quiet "$REPO" "$INSTALL_DIR"
