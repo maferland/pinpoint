@@ -66,15 +66,19 @@ export const test = base.extend<PinpointFixtures>({
     const args = ["review", imagePath, "--port", String(port)];
     if (pinpointContext) args.push("--context", pinpointContext);
 
-    // Isolate ~/.pinpoint/preferences.json per test run so the suite never
-    // touches the developer's real preferences file.
+    // Isolate the preferences file per test run so the suite never touches
+    // the developer's real prefs *and* tests don't leak state between each
+    // other. Must override XDG_CONFIG_HOME too — Linux CI runners set it to
+    // a shared path that defeats HOME isolation.
     const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-home-"));
+    const fakeXdg = path.join(fakeHome, ".config");
     const proc: ChildProcessWithoutNullStreams = spawn("node", [CLI_PATH, ...args], {
       env: {
         ...process.env,
         PINPOINT_TEST_NO_OPEN: "1",
         HOME: fakeHome,
         USERPROFILE: fakeHome,
+        XDG_CONFIG_HOME: fakeXdg,
       },
     }) as ChildProcessWithoutNullStreams;
 
