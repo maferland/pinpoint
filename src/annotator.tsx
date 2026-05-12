@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PinpointAnnotation, PinpointReview } from "./types.ts";
 import { Toolbar } from "./toolbar.tsx";
 import { CanvasLayer } from "./canvas-layer.tsx";
+import { UpdateBanner } from "./update-banner.tsx";
 import { getReview, imageUrl as buildImageUrl, reviewIdFromPath, saveAnnotations } from "./api.ts";
 
 export function AnnotatorApp() {
@@ -175,6 +176,8 @@ export function AnnotatorApp() {
         onUpdate={updateAnnotation}
         onDelete={removeAnnotation}
       />
+
+      <UpdateBanner />
     </div>
   );
 }
