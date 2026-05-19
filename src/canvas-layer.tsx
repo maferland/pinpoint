@@ -155,10 +155,15 @@ export function CanvasLayer({
 
     const drag = dragRef.current;
     if (drag) {
-      const dx = Math.min(drag.startX, drag.currentX);
-      const dy = Math.min(drag.startY, drag.currentY);
-      const dw = Math.abs(drag.currentX - drag.startX);
-      const dh = Math.abs(drag.currentY - drag.startY);
+      const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+      const sx = clamp(drag.startX, layout.drawW);
+      const sy = clamp(drag.startY, layout.drawH);
+      const ex = clamp(drag.currentX, layout.drawW);
+      const ey = clamp(drag.currentY, layout.drawH);
+      const dx = Math.min(sx, ex);
+      const dy = Math.min(sy, ey);
+      const dw = Math.abs(ex - sx);
+      const dh = Math.abs(ey - sy);
       ctx.strokeStyle = "#3b82f6";
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 3]);
@@ -209,15 +214,6 @@ export function CanvasLayer({
     [hitTestPin, onSelect, selectedId, localCoords]
   );
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragRef.current) return;
-    const local = localCoords(e.clientX, e.clientY);
-    if (!local) return;
-    dragRef.current.currentX = local.x;
-    dragRef.current.currentY = local.y;
-    bumpDrag();
-  }, [localCoords]);
-
   const finalizeDrag = useCallback(() => {
     const drag = dragRef.current;
     if (!drag) return;
@@ -225,26 +221,55 @@ export function CanvasLayer({
     bumpDrag();
     if (layout.drawW === 0) return;
 
+    // Clamp drag endpoints to image bounds so a drag that leaves the canvas
+    // still produces a box that stops at the edge instead of overshooting or
+    // collapsing.
+    const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
+    const sx = clamp(drag.startX, layout.drawW);
+    const sy = clamp(drag.startY, layout.drawH);
+    const ex = clamp(drag.currentX, layout.drawW);
+    const ey = clamp(drag.currentY, layout.drawH);
+
     const toPct = (v: number, size: number) => (v / size) * 100;
-    const x1 = toPct(Math.min(drag.startX, drag.currentX), layout.drawW);
-    const y1 = toPct(Math.min(drag.startY, drag.currentY), layout.drawH);
-    const x2 = toPct(Math.max(drag.startX, drag.currentX), layout.drawW);
-    const y2 = toPct(Math.max(drag.startY, drag.currentY), layout.drawH);
+    const x1 = toPct(Math.min(sx, ex), layout.drawW);
+    const y1 = toPct(Math.min(sy, ey), layout.drawH);
+    const x2 = toPct(Math.max(sx, ex), layout.drawW);
+    const y2 = toPct(Math.max(sy, ey), layout.drawH);
     const w = x2 - x1;
     const h = y2 - y1;
 
     if (w < 2 && h < 2) {
-      const midX = toPct((drag.startX + drag.currentX) / 2, layout.drawW);
-      const midY = toPct((drag.startY + drag.currentY) / 2, layout.drawH);
+      const midX = toPct((sx + ex) / 2, layout.drawW);
+      const midY = toPct((sy + ey) / 2, layout.drawH);
       const bx = Math.max(0, midX - CLICK_BOX_SIZE / 2);
       const by = Math.max(0, midY - CLICK_BOX_SIZE / 2);
       onBoxPlace(bx, by, Math.min(CLICK_BOX_SIZE, 100 - bx), Math.min(CLICK_BOX_SIZE, 100 - by));
       return;
     }
-    const cx = Math.max(0, x1);
-    const cy = Math.max(0, y1);
-    onBoxPlace(cx, cy, Math.min(100 - cx, w), Math.min(100 - cy, h));
+    onBoxPlace(x1, y1, w, h);
   }, [layout, onBoxPlace]);
+
+  // Track drag at the window level so leaving the canvas (or releasing over
+  // the popover/letterbox/toolbar) doesn't abandon the in-progress box.
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const local = localCoords(e.clientX, e.clientY);
+      if (!local) return;
+      dragRef.current.currentX = local.x;
+      dragRef.current.currentY = local.y;
+      bumpDrag();
+    };
+    const onUp = () => {
+      if (dragRef.current) finalizeDrag();
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [localCoords, finalizeDrag]);
 
   // Letterbox clicks (outside the canvas) close any open popover.
   const handleViewportMouseDown = useCallback(
@@ -285,9 +310,6 @@ export function CanvasLayer({
             height: layout.drawH || "100%",
           }}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={finalizeDrag}
-          onMouseLeave={finalizeDrag}
         >
             <canvas ref={canvasRef} className="block" />
 
