@@ -42,3 +42,21 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - Annotations are `{ id, number, imageIndex, pin, box?, comment }` — no intent/severity/status fields. Claude classifies from the comment text.
 - Canvas uses `hsl(var(--canvas-letterbox))` from CSS for theme support
 - Tailwind v4 — custom colors use `hsl(var(--variable))` pattern in global.css, NOT `@theme`
+
+## Releasing
+
+Two delivery paths:
+- `install.sh` does `git pull` + rebuild from `main` — fresh installs and manual re-runs get latest immediately, no tag required.
+- In-app update banner (`src/use-update-check.ts`) polls the GitHub Releases API and only fires on a new `vX.Y.Z` tag. Without a tag, existing users on the prior version won't be prompted.
+
+Cut a release when you want the banner to surface a change. Steps (run from `main` after the fix is merged):
+
+```bash
+# 1. Bump version in package.json (patch for bug fixes, minor for features)
+# 2. Commit the bump
+git add package.json && git commit -m "vX.Y.Z"
+# 3. Tag and push — release.yml builds and publishes auto-generated notes
+git tag vX.Y.Z && git push origin main vX.Y.Z
+```
+
+The `__APP_VERSION__` constant baked into the bundle comes from `package.json`'s `version` field (see `vite.config.ts`), so keep them in lockstep with the tag.
