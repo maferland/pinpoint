@@ -9,4 +9,6 @@ allowed-tools: Bash(pinpoint:*)
 
 ## Your task
 
-Address the annotation feedback above. Each entry has a comment and a region (pin or box, as percentages of the image). Treat comments as the source of truth — classify intent and severity yourself from the wording.
+Before fixing anything, call `TaskCreate` once with one task per annotation — use `#<number>: <comment>` as the title. Then work through them one at a time, marking each task `in_progress` when you start and `completed` when you finish.
+
+Each entry has a comment and a region (pin or box, as percentages of the image). Treat comments as the source of truth — classify intent and severity yourself from the wording. Do not batch fixes across annotations without tracked tasks; past sessions skipped findings that way.

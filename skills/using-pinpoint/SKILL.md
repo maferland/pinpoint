@@ -58,7 +58,17 @@ Always pass `--context` — it shows in the toolbar and orients the user.
 
 The user can also invoke the slash command `/pinpoint-review <image>...` themselves; the slash command is just a thin wrapper around the same CLI.
 
-### 3. Read the returned JSON and act
+### 3. Track every annotation as a task — BEFORE fixing anything
+
+The moment the JSON returns with annotations, your **first** action is to call `TaskCreate` with one task per annotation. Use the annotation number + comment as the task title (e.g. `#3: tag gap sucks, let's fix`). Then work them one at a time — mark `in_progress` when you start, `completed` when you finish.
+
+Why this is mandatory:
+- Past sessions have silently skipped findings about "surrounding page chrome" while addressing the in-card issues, because the model batched fixes and lost track. A task list makes the skip visible.
+- The user reads the diff against the task list, not against the original pinpoint output.
+
+A `PostToolUse` hook bundled with the plugin will inject a reminder when annotations come back. Don't wait for it — task-list as soon as you see the JSON.
+
+### 4. Read the returned JSON and act
 
 stdout looks like:
 
@@ -87,9 +97,9 @@ Each annotation has:
 
 Classify intent (bug, change request, question, approval) yourself from the comment text. There's no severity field — judge urgency from wording.
 
-### 4. Fix and iterate
+### 5. Fix and iterate
 
-After making fixes, capture a fresh screenshot and call `pinpoint review` again.
+After every task on the list is `completed`, capture a fresh screenshot and call `pinpoint review` again. Repeat until the user closes the loop without new annotations.
 
 ## MCP fallback
 
