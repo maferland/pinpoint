@@ -123,7 +123,7 @@ export function AnnotatorApp() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       <Toolbar
         reviewId={reviewId}
-        annotationCount={activeAnnotations.length}
+        annotationCount={annotations.length}
         context={review?.context}
         theme={theme}
         onThemeToggle={() => setTheme((t) => t === "dark" ? "light" : "dark")}
