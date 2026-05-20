@@ -15,8 +15,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun test
       - run: bun run build
+      - run: bun test
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
