@@ -2,10 +2,15 @@ import { test, expect } from "./cli-fixture.ts";
 
 test.use({ pinpointContext: "auto-close" });
 
+async function openSettings(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Settings" }).click();
+}
+
 test("Auto-close checkbox persists server-side and shows countdown after Done", async ({ page, pinpointCli }) => {
   await page.goto(pinpointCli.url);
 
-  const checkbox = page.getByRole("checkbox", { name: "Auto-close" });
+  await openSettings(page);
+  const checkbox = page.getByRole("checkbox", { name: /Auto-close tab/ });
   await expect(checkbox).not.toBeChecked();
 
   // Toggle on, verify it round-trips through the /api/preferences endpoint.
@@ -19,7 +24,8 @@ test("Auto-close checkbox persists server-side and shows countdown after Done", 
 
   // Reload — checkbox should remember its state.
   await page.reload();
-  const checkboxAfterReload = page.getByRole("checkbox", { name: "Auto-close" });
+  await openSettings(page);
+  const checkboxAfterReload = page.getByRole("checkbox", { name: /Auto-close tab/ });
   await expect(checkboxAfterReload).toBeChecked();
 
   // Click Done — button should display the countdown variant.
@@ -34,7 +40,8 @@ test("Auto-close checkbox persists server-side and shows countdown after Done", 
 
 test("Auto-close OFF — Done shows the static 'you can close this tab' label", async ({ page, pinpointCli }) => {
   await page.goto(pinpointCli.url);
-  const checkbox = page.getByRole("checkbox", { name: "Auto-close" });
+  await openSettings(page);
+  const checkbox = page.getByRole("checkbox", { name: /Auto-close tab/ });
   await expect(checkbox).not.toBeChecked();
 
   await page.getByRole("button", { name: "Looks good" }).click();
