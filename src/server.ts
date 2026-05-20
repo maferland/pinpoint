@@ -26,7 +26,10 @@ export async function readImageDimensions(
   return { width: 0, height: 0 };
 }
 
-async function resolveImage(imagePath: string): Promise<ImageInfo | null> {
+async function resolveImage(
+  imagePath: string,
+  details?: Record<string, string>
+): Promise<ImageInfo | null> {
   const absPath = path.resolve(imagePath);
   try {
     await fs.promises.access(absPath, fs.constants.R_OK);
@@ -34,7 +37,28 @@ async function resolveImage(imagePath: string): Promise<ImageInfo | null> {
     return null;
   }
   const dims = await readImageDimensions(absPath);
-  return { path: absPath, ...dims };
+  const info: ImageInfo = { path: absPath, ...dims };
+  if (details && Object.keys(details).length > 0) info.details = details;
+  return info;
+}
+
+const ImageInput = z.union([
+  z.string().describe("Image file path"),
+  z.object({
+    path: z.string().describe("Image file path"),
+    details: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe(
+        "Key/value pairs the reviewer should know about this screenshot — e.g. { route: '/cart', state: 'logged-in, 3 items', focus: 'CTA spacing' }"
+      ),
+  }),
+]);
+
+type ImageInputT = z.infer<typeof ImageInput>;
+
+function normalizeImageInput(input: ImageInputT): { path: string; details?: Record<string, string> } {
+  return typeof input === "string" ? { path: input } : input;
 }
 
 export function registerTools(
@@ -51,21 +75,21 @@ export function registerTools(
         "Open one or more screenshots for visual annotation. Returns a URL the user opens in their browser. Call get_annotations after the user finishes.",
       inputSchema: z.object({
         images: z.union([
-          z.string().describe("Single image file path"),
-          z.array(z.string()).describe("Array of image file paths"),
+          ImageInput.describe("Single image (path string or { path, note })"),
+          z.array(ImageInput).describe("Array of images (path strings or { path, note } objects)"),
         ]),
-        context: z.string().optional().describe("What these screenshots show"),
+        context: z.string().optional().describe("Overall purpose of the review — applies to all images"),
       }),
       annotations: { readOnlyHint: true },
     },
     async ({ images: input, context }): Promise<CallToolResult> => {
-      const paths = Array.isArray(input) ? input : [input];
+      const entries = (Array.isArray(input) ? input : [input]).map(normalizeImageInput);
       const resolved: ImageInfo[] = [];
-      for (const p of paths) {
-        const img = await resolveImage(p);
+      for (const entry of entries) {
+        const img = await resolveImage(entry.path, entry.details);
         if (!img) {
           return {
-            content: [{ type: "text", text: `Image not found: ${path.resolve(p)}` }],
+            content: [{ type: "text", text: `Image not found: ${path.resolve(entry.path)}` }],
             isError: true,
           };
         }
@@ -103,7 +127,7 @@ export function registerTools(
       description: "Add another screenshot to an existing review.",
       inputSchema: z.object({
         reviewId: z.string(),
-        image: z.string().describe("Absolute file path to the screenshot"),
+        image: ImageInput.describe("Image file path, or { path, note } for per-screen detail"),
       }),
     },
     async ({ reviewId, image }): Promise<CallToolResult> => {
@@ -111,9 +135,10 @@ export function registerTools(
       if (!review) {
         return { content: [{ type: "text", text: `Review "${reviewId}" not found.` }], isError: true };
       }
-      const img = await resolveImage(image);
+      const entry = normalizeImageInput(image);
+      const img = await resolveImage(entry.path, entry.details);
       if (!img) {
-        return { content: [{ type: "text", text: `Image not found: ${path.resolve(image)}` }], isError: true };
+        return { content: [{ type: "text", text: `Image not found: ${path.resolve(entry.path)}` }], isError: true };
       }
       review.images.push(img);
       await store.save(review);
@@ -156,9 +181,12 @@ export function registerTools(
         })
         .join("\n");
 
-      const imageList = review.images.map((img, i) =>
-        `  [${i + 1}] ${img.path} (${img.width}x${img.height})`
-      ).join("\n");
+      const imageList = review.images.map((img, i) => {
+        const details = img.details
+          ? "\n" + Object.entries(img.details).map(([k, v]) => `      ${k}: ${v}`).join("\n")
+          : "";
+        return `  [${i + 1}] ${img.path} (${img.width}x${img.height})${details}`;
+      }).join("\n");
 
       return {
         content: [{

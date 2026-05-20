@@ -1,9 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PinpointAnnotation, PinpointReview } from "./types.ts";
+import type { Preferences } from "./api.ts";
 import { Toolbar } from "./toolbar.tsx";
 import { CanvasLayer } from "./canvas-layer.tsx";
 import { UpdateBanner } from "./update-banner.tsx";
-import { getReview, imageUrl as buildImageUrl, reviewIdFromPath, saveAnnotations } from "./api.ts";
+import { Thumbnail } from "./thumbnail.tsx";
+import { DetailsPanel } from "./details-panel.tsx";
+import { HotkeysHelp } from "./hotkeys-help.tsx";
+import { useIdleReminder } from "./use-idle-reminder.ts";
+import {
+  getPreferences,
+  getReview,
+  imageUrl as buildImageUrl,
+  reviewIdFromPath,
+  saveAnnotations,
+  savePreferences,
+} from "./api.ts";
+
+const DEFAULT_PREFS: Preferences = {
+  autoCloseAfterDone: false,
+  viewMode: "fit",
+  idleReminder: false,
+  idleReminderDelaySec: 60,
+};
+
+export function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || target.isContentEditable;
+}
 
 export function AnnotatorApp() {
   const reviewId = reviewIdFromPath(window.location.pathname);
@@ -12,6 +37,11 @@ export function AnnotatorApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [finalized, setFinalized] = useState(false);
+  const [detailsHidden, setDetailsHidden] = useState(false);
+  const [hotkeysOpen, setHotkeysOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -27,6 +57,29 @@ export function AnnotatorApp() {
       })
       .catch((err) => console.error("Failed to load review:", err));
   }, [reviewId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPreferences()
+      .then((loaded) => { if (!cancelled) setPrefs({ ...DEFAULT_PREFS, ...loaded }); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setPrefsLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const onPrefsChange = useCallback((patch: Partial<Preferences>) => {
+    setPrefs((current) => {
+      const next = { ...current, ...patch };
+      savePreferences(patch).catch((err) => console.error("savePreferences failed:", err));
+      return next;
+    });
+  }, []);
+
+  useIdleReminder({
+    enabled: prefs.idleReminder && prefsLoaded && !!review,
+    delaySec: prefs.idleReminderDelaySec,
+    paused: finalized,
+  });
 
   const currentImageUrl = review && review.images.length > 0 && reviewId
     ? buildImageUrl(reviewId, activeImageIndex)
@@ -92,10 +145,21 @@ export function AnnotatorApp() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedId(null);
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !document.querySelector("textarea:focus")) {
+      const editable = isEditableTarget(e.target);
+
+      if (e.key === "Escape" && !editable) setSelectedId(null);
+
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !editable) {
         removeAnnotation(selectedId);
       }
+
+      if (e.key === "?" && !editable) { setHotkeysOpen((v) => !v); return; }
+
+      // Arrow navigation is plain-arrow only — modifier combos (cmd/ctrl+arrow
+      // for word/line jumps, shift for selection) stay native, and editable
+      // targets always get to handle their own keys.
+      if (editable || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+
       if (e.key === "ArrowLeft" && review && activeImageIndex > 0) {
         setActiveImageIndex((i) => i - 1);
         setSelectedId(null);
@@ -118,6 +182,11 @@ export function AnnotatorApp() {
   }
 
   const imageCount = review?.images.length ?? 0;
+  const activeImage = review?.images[activeImageIndex];
+  const activeDetails = activeImage?.details && Object.keys(activeImage.details).length > 0
+    ? activeImage.details
+    : null;
+  const detailsVisible = !!activeDetails && !detailsHidden;
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -127,57 +196,56 @@ export function AnnotatorApp() {
         context={review?.context}
         theme={theme}
         onThemeToggle={() => setTheme((t) => t === "dark" ? "light" : "dark")}
+        prefs={prefs}
+        prefsLoaded={prefsLoaded}
+        onPrefsChange={onPrefsChange}
+        onFinalized={() => setFinalized(true)}
+        hasDetails={!!activeDetails}
+        detailsVisible={detailsVisible}
+        onToggleDetails={() => setDetailsHidden((v) => !v)}
+        onShowHotkeys={() => setHotkeysOpen(true)}
       />
 
-      {/* Filmstrip — exact Lovable classes */}
       {imageCount > 1 && (
         <div className="h-16 flex items-center gap-2 px-4 bg-card border-b border-border shrink-0 overflow-x-auto">
-          {review!.images.map((_, i) => {
-            const count = annotations.filter((a) => a.imageIndex === i).length;
-            const isActive = i === activeImageIndex;
-            return (
-              <button
-                key={i}
-                className={`relative h-11 w-20 rounded-md overflow-hidden border-2 transition-all shrink-0 group ${
-                  isActive
-                    ? "border-primary shadow-md shadow-primary/20"
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-                onClick={() => { setActiveImageIndex(i); setSelectedId(null); }}
-              >
-                <img
-                  src={buildImageUrl(reviewId, i)}
-                  alt={`Image ${i + 1}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <span className={`absolute top-0.5 left-0.5 text-[9px] font-bold rounded px-1 leading-4 ${
-                  isActive ? "bg-primary text-primary-foreground" : "bg-black/60 text-white"
-                }`}>
-                  {i + 1}
-                </span>
-                {count > 0 && (
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] font-medium bg-black/60 text-white rounded px-1 leading-3">
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {review!.images.map((img, i) => (
+            <Thumbnail
+              key={i}
+              src={buildImageUrl(reviewId, i)}
+              index={i}
+              active={i === activeImageIndex}
+              annotationCount={annotations.filter((a) => a.imageIndex === i).length}
+              hasDetails={!!img.details && Object.keys(img.details).length > 0}
+              onClick={() => { setActiveImageIndex(i); setSelectedId(null); }}
+            />
+          ))}
         </div>
       )}
 
-      <CanvasLayer
-        imageDataUrl={currentImageUrl}
-        annotations={activeAnnotations}
-        selectedId={selectedId}
-        onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
-        onSelect={setSelectedId}
-        onUpdate={updateAnnotation}
-        onDelete={removeAnnotation}
-      />
+      <div className="flex-1 relative overflow-hidden flex">
+        <CanvasLayer
+          imageDataUrl={currentImageUrl}
+          annotations={activeAnnotations}
+          selectedId={selectedId}
+          viewMode={prefs.viewMode}
+          onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
+          onSelect={setSelectedId}
+          onUpdate={updateAnnotation}
+          onDelete={removeAnnotation}
+        />
+        {detailsVisible && activeDetails && (
+          <DetailsPanel
+            key={activeImageIndex}
+            details={activeDetails}
+            imageLabel={imageCount > 1 ? `Image ${activeImageIndex + 1}` : "Details"}
+            onClose={() => setDetailsHidden(true)}
+          />
+        )}
+      </div>
 
       <UpdateBanner />
+
+      {hotkeysOpen && <HotkeysHelp onClose={() => setHotkeysOpen(false)} />}
     </div>
   );
 }

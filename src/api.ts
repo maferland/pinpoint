@@ -37,10 +37,15 @@ export async function finalizeReview(reviewId: string): Promise<void> {
   if (!res.ok) throw new Error(`finalizeReview failed: ${res.status}`);
 }
 
+export type ViewMode = "fit" | "actual";
+
 export interface Preferences {
   autoCloseAfterDone: boolean;
   theme?: "dark" | "light";
   dismissedUpdateVersion?: string;
+  viewMode: ViewMode;
+  idleReminder: boolean;
+  idleReminderDelaySec: number;
 }
 
 export async function getPreferences(): Promise<Preferences> {

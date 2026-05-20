@@ -20,6 +20,30 @@ describe("PreferencesStore", () => {
   it("returns defaults when no file exists", async () => {
     const prefs = await new PreferencesStore(file).load();
     expect(prefs.autoCloseAfterDone).toBe(false);
+    expect(prefs.viewMode).toBe("fit");
+    expect(prefs.idleReminder).toBe(false);
+    expect(prefs.idleReminderDelaySec).toBe(60);
+  });
+
+  it("round-trips viewMode + idleReminder fields", async () => {
+    const store = new PreferencesStore(file);
+    await store.save({ viewMode: "actual", idleReminder: true, idleReminderDelaySec: 120 });
+    const after = await store.load();
+    expect(after.viewMode).toBe("actual");
+    expect(after.idleReminder).toBe(true);
+    expect(after.idleReminderDelaySec).toBe(120);
+    expect(after.autoCloseAfterDone).toBe(false);
+  });
+
+  it("backfills missing new fields onto an older saved file", async () => {
+    // Simulate a file written by a prior version that only knew autoCloseAfterDone.
+    const fs = await import("fs");
+    fs.writeFileSync(file, JSON.stringify({ autoCloseAfterDone: true }));
+    const prefs = await new PreferencesStore(file).load();
+    expect(prefs.autoCloseAfterDone).toBe(true);
+    expect(prefs.viewMode).toBe("fit");
+    expect(prefs.idleReminder).toBe(false);
+    expect(prefs.idleReminderDelaySec).toBe(60);
   });
 
   it("save then load round-trips", async () => {
