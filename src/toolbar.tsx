@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { finalizeReview, getPreferences, savePreferences } from "./api.ts";
+import { finalizeReview } from "./api.ts";
+import type { Preferences } from "./api.ts";
+import { SettingsPopover } from "./settings-popover.tsx";
 
 const AUTO_CLOSE_DELAY_MS = 3000;
 
@@ -9,6 +11,14 @@ interface ToolbarProps {
   context?: string;
   theme: "dark" | "light";
   onThemeToggle: () => void;
+  prefs: Preferences;
+  prefsLoaded: boolean;
+  onPrefsChange: (patch: Partial<Preferences>) => void;
+  onFinalized: () => void;
+  hasDetails: boolean;
+  detailsVisible: boolean;
+  onToggleDetails: () => void;
+  onShowHotkeys: () => void;
 }
 
 const SunIcon = () => (
@@ -24,41 +34,62 @@ const MoonIcon = () => (
   </svg>
 );
 
-export function Toolbar({ reviewId, annotationCount, context, theme, onThemeToggle }: ToolbarProps) {
+const InfoIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+);
+
+const QuestionIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const GearIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+);
+
+export function Toolbar({
+  reviewId,
+  annotationCount,
+  context,
+  theme,
+  onThemeToggle,
+  prefs,
+  prefsLoaded,
+  onPrefsChange,
+  onFinalized,
+  hasDetails,
+  detailsVisible,
+  onToggleDetails,
+  onShowHotkeys,
+}: ToolbarProps) {
   const [doneState, setDoneState] = useState<"idle" | "sending" | "sent">("idle");
-  const [autoClose, setAutoClose] = useState<boolean>(false);
-  const [prefsLoaded, setPrefsLoaded] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    getPreferences()
-      .then((prefs) => { if (!cancelled) setAutoClose(prefs.autoCloseAfterDone); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setPrefsLoaded(true); });
-    return () => { cancelled = true; };
-  }, []);
-
-  const onAutoCloseToggle = (next: boolean) => {
-    setAutoClose(next);
-    savePreferences({ autoCloseAfterDone: next }).catch((err) => {
-      console.error("savePreferences failed:", err);
-    });
-  };
-
-  useEffect(() => {
-    if (doneState !== "sent" || !autoClose) return;
+    if (doneState !== "sent" || !prefs.autoCloseAfterDone) return;
     setCountdown(Math.round(AUTO_CLOSE_DELAY_MS / 1000));
     const tick = setInterval(() => setCountdown((n) => (n > 0 ? n - 1 : 0)), 1000);
     const close = setTimeout(() => window.close(), AUTO_CLOSE_DELAY_MS);
     return () => { clearInterval(tick); clearTimeout(close); };
-  }, [doneState, autoClose]);
+  }, [doneState, prefs.autoCloseAfterDone]);
 
   const sendDone = async () => {
     setDoneState("sending");
     try {
       await finalizeReview(reviewId);
       setDoneState("sent");
+      onFinalized();
     } catch (err) {
       console.error("Finalize failed:", err);
       setDoneState("idle");
@@ -66,7 +97,7 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
   };
 
   return (
-    <div className="h-11 flex items-center px-4 gap-3 bg-card border-b border-border shrink-0 select-none">
+    <div className="h-11 flex items-center px-4 gap-3 bg-card border-b border-border shrink-0 select-none relative">
       <div className="flex items-center gap-2 mr-2">
         <div className="w-5 h-5 rounded-md bg-primary flex items-center justify-center">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -82,26 +113,25 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
       </div>
       <div className="w-px h-5 bg-border" />
       <span className="text-[12px] text-muted-foreground truncate flex-1 min-w-0">{context ?? ""}</span>
-      <span className="text-[11px] text-muted-foreground/50 hidden sm:inline">Click to pin · Drag to select region</span>
       <div className="w-px h-5 bg-border" />
       <span className="text-[12px] text-muted-foreground tabular-nums whitespace-nowrap">
         {annotationCount} pin{annotationCount !== 1 ? "s" : ""}
       </span>
       <div className="w-px h-5 bg-border" />
-      <label
-        className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer whitespace-nowrap select-none"
-        title="When checked, this tab tries to close itself 3s after Done"
-      >
-        <input
-          type="checkbox"
-          className="accent-primary cursor-pointer disabled:opacity-50"
-          checked={autoClose}
-          disabled={!prefsLoaded}
-          onChange={(e) => onAutoCloseToggle(e.target.checked)}
-        />
-        Auto-close
-      </label>
-      <div className="w-px h-5 bg-border" />
+      {hasDetails && (
+        <button
+          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
+            detailsVisible
+              ? "bg-accent text-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+          onClick={onToggleDetails}
+          title={detailsVisible ? "Hide details" : "Show details"}
+          aria-label={detailsVisible ? "Hide details" : "Show details"}
+        >
+          <InfoIcon />
+        </button>
+      )}
       <button
         className={`text-[12px] px-2.5 h-7 rounded-md font-medium transition-colors whitespace-nowrap ${
           doneState === "sent"
@@ -116,9 +146,28 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
           ? "Looks good"
           : `Send ${annotationCount} comment${annotationCount === 1 ? "" : "s"}`)}
         {doneState === "sending" && "Sending…"}
-        {doneState === "sent" && (autoClose && countdown > 0
+        {doneState === "sent" && (prefs.autoCloseAfterDone && countdown > 0
           ? `Sent — closing in ${countdown}s`
           : "Sent — you can close this tab")}
+      </button>
+      <button
+        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        onClick={onShowHotkeys}
+        title="Keyboard shortcuts (?)"
+        aria-label="Keyboard shortcuts"
+      >
+        <QuestionIcon />
+      </button>
+      <button
+        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors disabled:opacity-50 ${
+          settingsOpen ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        }`}
+        onClick={() => setSettingsOpen((v) => !v)}
+        disabled={!prefsLoaded}
+        title="Settings"
+        aria-label="Settings"
+      >
+        <GearIcon />
       </button>
       <button
         className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -127,6 +176,13 @@ export function Toolbar({ reviewId, annotationCount, context, theme, onThemeTogg
       >
         {theme === "dark" ? <SunIcon /> : <MoonIcon />}
       </button>
+      {settingsOpen && (
+        <SettingsPopover
+          prefs={prefs}
+          onChange={onPrefsChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }

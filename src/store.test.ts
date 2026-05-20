@@ -74,4 +74,22 @@ describe("FileReviewStore", () => {
     await store.save(makeReview("ctx", { context: "Login page" }));
     expect((await store.load("ctx"))?.context).toBe("Login page");
   });
+
+  it("preserves per-image details", async () => {
+    const review = makeReview("with-details", {
+      images: [{
+        path: "/tmp/page.png",
+        width: 800,
+        height: 600,
+        details: { route: "/cart", state: "3 items", focus: "CTA spacing" },
+      }],
+    });
+    await store.save(review);
+    const loaded = await store.load("with-details");
+    expect(loaded?.images[0].details).toEqual({
+      route: "/cart",
+      state: "3 items",
+      focus: "CTA spacing",
+    });
+  });
 });

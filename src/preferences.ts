@@ -2,14 +2,26 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
+export type ViewMode = "fit" | "actual";
+
 export interface Preferences {
   autoCloseAfterDone: boolean;
   theme?: "dark" | "light";
   /** Tag of the latest release the user has dismissed the update banner for. */
   dismissedUpdateVersion?: string;
+  /** "fit" scales the canvas to fill the viewport; "actual" caps at native pixels. */
+  viewMode: ViewMode;
+  /** Plays a soft beep when the review has sat idle past idleReminderDelaySec. */
+  idleReminder: boolean;
+  idleReminderDelaySec: number;
 }
 
-const DEFAULTS: Preferences = { autoCloseAfterDone: false };
+const DEFAULTS: Preferences = {
+  autoCloseAfterDone: false,
+  viewMode: "fit",
+  idleReminder: false,
+  idleReminderDelaySec: 60,
+};
 
 function defaultPreferencesFile(): string {
   const configHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");

@@ -146,8 +146,38 @@ describe("createHttpServer", () => {
     it("GET returns defaults when no file exists", async () => {
       const res = await fetch(`${baseUrl}/api/preferences`);
       expect(res.status).toBe(200);
-      const data = await res.json() as { autoCloseAfterDone: boolean };
+      const data = await res.json() as {
+        autoCloseAfterDone: boolean;
+        viewMode: string;
+        idleReminder: boolean;
+        idleReminderDelaySec: number;
+      };
       expect(data.autoCloseAfterDone).toBe(false);
+      expect(data.viewMode).toBe("fit");
+      expect(data.idleReminder).toBe(false);
+      expect(data.idleReminderDelaySec).toBe(60);
+    });
+
+    it("PUT roundtrips the new viewMode + idleReminder fields", async () => {
+      const put = await fetch(`${baseUrl}/api/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewMode: "actual", idleReminder: true, idleReminderDelaySec: 30 }),
+      });
+      expect(put.status).toBe(200);
+      const data = await (await fetch(`${baseUrl}/api/preferences`)).json() as {
+        viewMode: string; idleReminder: boolean; idleReminderDelaySec: number;
+      };
+      expect(data.viewMode).toBe("actual");
+      expect(data.idleReminder).toBe(true);
+      expect(data.idleReminderDelaySec).toBe(30);
+
+      // Reset for other tests.
+      await fetch(`${baseUrl}/api/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ viewMode: "fit", idleReminder: false, idleReminderDelaySec: 60 }),
+      });
     });
 
     it("PUT persists, GET reads back", async () => {

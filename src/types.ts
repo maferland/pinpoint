@@ -2,6 +2,11 @@ export interface ImageInfo {
   path: string;
   width: number;
   height: number;
+  /**
+   * Key/value pairs the agent attaches to a screenshot — route, state, viewport,
+   * what to look at, etc. Rendered in the draggable details panel.
+   */
+  details?: Record<string, string>;
 }
 
 export interface PinpointAnnotation {
