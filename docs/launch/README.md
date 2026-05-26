@@ -17,8 +17,10 @@ All drafts. Edit them in your voice before posting.
 - Versioned and tagged v0.6.0
 - CHANGELOG.md (root of repo)
 - Demo bundle checked in at `assets/demo.pinpoint.zip` so `pinpoint open assets/demo.pinpoint.zip` works immediately after install
-- README rewritten: leads with export/import, MCP and slash command as peers, "try it in one command" section
-- Skill docs updated for export/import flow
+- README rewritten: leads with the review loop, export/import as a follow-on, MCP and slash command as peers, "try it in one command" section
+- New `/install-pinpoint` slash command + README documents the in-Claude install path (`/plugin marketplace add` → `/plugin install` → `/install-pinpoint`)
+- All Done references fixed to match the actual button text (Looks good / Send N comments)
+- Skill docs updated for export/import flow and corrected button text
 - All five launch copy drafts in this folder
 
 ## What's still on you
@@ -28,7 +30,7 @@ All drafts. Edit them in your voice before posting.
 1. **Record the loop GIF.** This is the biggest single missing piece. Aim for 10-12 seconds, ~3MB. Suggested capture:
    - Take a screenshot of a real UI bug (Storybook story with a misaligned button works well)
    - Run `/pinpoint-review` (Claude Code) or `pinpoint review <file>`
-   - Drop one pin, type a comment, click Done
+   - Drop one pin, type a comment, hit Send
    - Cut to Claude applying the fix
    - Cut to the after screenshot
    - Tools: CleanShot X record-to-GIF, or `screencapture -v` + ffmpeg

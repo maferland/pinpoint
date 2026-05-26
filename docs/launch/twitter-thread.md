@@ -8,7 +8,7 @@ Six tweets. Hook → demo → mechanism → portability angle → install → cl
 
 I got tired of describing UI bugs to Claude in prose. "Second card, padding's wrong, heading misaligned with body, looks like 4px..."
 
-Pinpoint replaces that with pins on a screenshot. Click. Comment. Done. Claude fixes it.
+Pinpoint replaces that with pins on a screenshot. Click. Comment. Send. Claude fixes it.
 
 [GIF of the loop]
 
@@ -16,7 +16,7 @@ Pinpoint replaces that with pins on a screenshot. Click. Comment. Done. Claude f
 
 **2/ (what it actually does)**
 
-Slash command opens your browser. You annotate. Click Done. The agent gets structured JSON back: coordinates as percentages, your comment as the source of truth.
+Slash command opens your browser. You annotate. Hit Send. The agent gets structured JSON back: coordinates as percentages, your comment as the source of truth.
 
 Whole round-trip usually under a minute.
 

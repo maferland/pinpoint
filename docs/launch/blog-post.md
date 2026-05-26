@@ -18,9 +18,9 @@ What I actually wanted was: point at the thing. Type a sentence. Done.
 
 ## The pattern that made it work
 
-Around the time I was solving this for myself, I came across [Plannotator](https://github.com/backnotprop/plannotator), a tool by @backnotprop for annotating plans. The mechanism stuck with me: a slash command shells out to a CLI binary, the binary blocks until the user signals done, structured stdout flows back into the conversation. The agent's loop is paused while the user does something in a different surface. When the user is finished, the agent picks up where it left off, now with structured data.
+Around the time I was solving this for myself, I came across [Plannotator](https://github.com/backnotprop/plannotator), a tool by @backnotprop for annotating plans. The mechanism stuck with me: a slash command shells out to a CLI binary, the binary blocks until the user finishes their part, structured stdout flows back into the conversation. The agent's loop is paused while the user does something in a different surface. When the user is finished, the agent picks up where it left off, now with structured data.
 
-That's the right shape for visual feedback. The agent generates the code, I take a screenshot, I run a slash command, my browser opens, I click on the thing, type a sentence, hit Done. The slash command returns JSON with coordinates as percentages and my comment as the source of truth. The agent reads each annotation as a discrete task and works through them.
+That's the right shape for visual feedback. The agent generates the code, I take a screenshot, I run a slash command, my browser opens, I click on the thing, type a sentence, hit Send. The slash command returns JSON with coordinates as percentages and my comment as the source of truth. The agent reads each annotation as a discrete task and works through them.
 
 The implementation is small. An HTTP server bound to localhost. A React app served by it. The CLI spawns the server, opens the browser, and waits for a finalize signal. Coordinates are percentages so they're resolution-independent. No native dependencies, no Electron, no app to install. Just `bun run build` and a binary.
 
@@ -34,7 +34,7 @@ Here's what happens. I'm working on a UI. I have Claude generate a first pass. I
 
 In the old version, I'd send a screenshot in Slack and ask "anything off about this?" They'd reply with prose. Then I'd type that prose back into Claude. Same lossy translation, just now with a human in the middle.
 
-The new version: I click an Export button in the toolbar. Out comes a `.pinpoint.zip`, which is a small archive with a `review.json` manifest and the raw image bytes. I send the file. The recipient runs `pinpoint open the-file.pinpoint.zip` and gets the same browser UI I had, with my pins already on the screenshot. They add their own pins, click Done, export, send back. I open their file. Claude sees both sets and acts on the union.
+The new version: I click an Export button in the toolbar. Out comes a `.pinpoint.zip`, which is a small archive with a `review.json` manifest and the raw image bytes. I send the file. The recipient runs `pinpoint open the-file.pinpoint.zip` and gets the same browser UI I had, with my pins already on the screenshot. They add their own pins, hit Send, export, send back. I open their file. Claude sees both sets and acts on the union.
 
 What I like about this is that nobody else has to use Claude. Or know what MCP is. Or have a Claude account. They install Pinpoint (one curl, requires Bun) and they can participate. Visual review is decoupled from whatever agent is doing the fixing.
 
@@ -52,7 +52,7 @@ After install there's a demo bundle you can open without taking your own screens
 pinpoint open assets/demo.pinpoint.zip
 ```
 
-That opens a real session in your browser with a few starter pins on a real screenshot. Edit them, draw your own, click Done, see the JSON. It's the fastest way to feel the loop.
+That opens a real session in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit Send, see the JSON. It's the fastest way to feel the loop.
 
 If you use Claude Code, the slash command `/pinpoint-review <image>` is the easiest entry point. If you use Cursor, Aider, or anything else that speaks MCP, the MCP server registers with the same `pinpoint` command and exposes four tools (`create_review`, `add_image`, `get_annotations`, `list_reviews`).
 
