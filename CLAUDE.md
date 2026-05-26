@@ -57,13 +57,13 @@ Two delivery paths:
 
 ### Writing CHANGELOG entries
 
-The `## [vX.Y.Z]` section shows up in the GitHub release body and the in-app upgrade banner — write for the reader scanning it in five seconds.
+The `## [vX.Y.Z]` section is what the reader sees in the release body and the upgrade banner. Five seconds to scan.
 
-- **Lead with the user outcome, not the mechanism.** ❌ "A hook blocks detached invocations." ✅ "Your pins don't vanish when an agent backgrounds the review."
-- **One bullet, two sentences max.** Bold headline = the outcome. One sentence after = the why or the before/after. If it needs more, it's two changes — split it.
-- **Concrete > generic.** "85k-pixel-tall stitched scroll" beats "very large images".
-- **Implementation detail only if it is the outcome.** "Moved to a DOM overlay" earned its place because it explained why pins stay sharp.
-- **Run `/humanizer` on every entry before committing.** Non-negotiable. The skill strips AI-isms per `~/.claude/rules/writing-style.md` — if it rewrites a line, that line was AI slop.
+- **Lead with the outcome, not the mechanism.** ❌ "A hook blocks detached invocations." ✅ "Your pins don't vanish when an agent backgrounds the review."
+- **One bullet, one sentence after the headline.** Need more? Split into two bullets.
+- **Concrete > generic.** "85k-pixel-tall scroll", not "very large images".
+- **No implementation detail unless it is the outcome.**
+- **Run `/humanizer` before committing.** If it rewrites a line, that line was slop.
 
 ### Cutting a release
 
