@@ -55,6 +55,18 @@ Two delivery paths:
 - `install.sh` does `git pull` + rebuild from `main` — fresh installs and manual re-runs get latest immediately, no tag required.
 - In-app update banner (`src/use-update-check.ts`) polls the GitHub Releases API and only fires on a new `vX.Y.Z` tag. Without a tag, existing users on the prior version won't be prompted.
 
+### Writing CHANGELOG entries
+
+The `## [vX.Y.Z]` section shows up in the GitHub release body and the in-app upgrade banner — write for the reader scanning it in five seconds.
+
+- **Lead with the user outcome, not the mechanism.** ❌ "A hook blocks detached invocations." ✅ "Your pins don't vanish when an agent backgrounds the review."
+- **Bold one-sentence headline, then explain how and why.** Headline stands on its own.
+- **Concrete > generic.** "85k-pixel-tall stitched scroll" beats "very large images".
+- **Implementation detail only if it is the outcome.** "Moved to a DOM overlay" earned its place because it explained why pins stay sharp.
+- **Run `/humanizer` on every entry before committing.** Non-negotiable. The skill strips AI-isms per `~/.claude/rules/writing-style.md` — if it rewrites a line, that line was AI slop.
+
+### Cutting a release
+
 Cut a release when you want the banner to surface a change. Steps (run from `main` after the fix is merged):
 
 ```bash
