@@ -1,6 +1,6 @@
 ## [v0.8.1]
 
-- **The detached-review hook no longer trips on quoted strings.** v0.8.0 denied any Bash command that mentioned both `pinpoint review` and `&` anywhere in the command line — including inside `--notes` strings, commit messages, or release notes about the hook itself. The hook now strips quoted spans before matching, so only real shell invocations get blocked.
+- **The detached-review hook no longer trips on quoted strings.** v0.8.0 denied any Bash command that mentioned both `pinpoint review` and `&` anywhere on the line, including `--notes` arguments, commit messages, and release notes about this very hook. The hook now strips quoted spans before matching, so only real shell invocations get blocked.
 
 ## [v0.8.0]
 
