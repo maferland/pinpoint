@@ -54,7 +54,7 @@ pinpoint open assets/demo.pinpoint.zip
 
 That opens a real session in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit Send, see the JSON. It's the fastest way to feel the loop.
 
-If you use Claude Code, the slash command `/pinpoint-review <image>` is the easiest entry point. If you use Cursor, Aider, or anything else that speaks MCP, the MCP server registers with the same `pinpoint` command and exposes four tools (`create_review`, `add_image`, `get_annotations`, `list_reviews`).
+If you use Claude Code, the slash command `/pinpoint:review <image>` is the easiest entry point. If you use Cursor, Aider, or anything else that speaks MCP, the MCP server registers with the same `pinpoint` command and exposes four tools (`create_review`, `add_image`, `get_annotations`, `list_reviews`).
 
 If you build it into your workflow and find rough edges, open an issue. If you ship a Pinpoint session to a designer and it actually closes a loop that used to take three Slack messages, send me a note. I want to hear it.
 

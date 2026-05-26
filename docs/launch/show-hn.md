@@ -22,7 +22,7 @@ That portability is the part I'm proudest of. A review packages into a `.pinpoin
 
 Two ways to use it:
 
-1. Claude Code slash command. `/pinpoint-review /tmp/screenshot.png`. Easiest if you're already in that ecosystem.
+1. Claude Code slash command. `/pinpoint:review /tmp/screenshot.png`. Easiest if you're already in that ecosystem.
 2. MCP server. Works with any MCP-capable agent (Cursor, Aider, raw API, anything that speaks MCP). Same browser UI, same return shape.
 
 There's also a `pinpoint open assets/demo.pinpoint.zip` you can run right after install to see the UI without taking your own screenshot first.
