@@ -18,7 +18,7 @@ All drafts. Edit them in your voice before posting.
 - CHANGELOG.md (root of repo)
 - Demo bundle checked in at `assets/demo.pinpoint.zip` so `pinpoint open assets/demo.pinpoint.zip` works immediately after install
 - README rewritten: leads with the review loop, export/import as a follow-on, MCP and slash command as peers, "try it in one command" section
-- New `/install-pinpoint` slash command + README documents the in-Claude install path (`/plugin marketplace add` → `/plugin install` → `/install-pinpoint`)
+- New `/pinpoint:install` slash command + README documents the in-Claude install path (`/plugin marketplace add` → `/plugin install` → `/pinpoint:install`)
 - All Done references fixed to match the actual button text (Looks good / Send N comments)
 - Skill docs updated for export/import flow and corrected button text
 - All five launch copy drafts in this folder

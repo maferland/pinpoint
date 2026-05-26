@@ -23,13 +23,13 @@ Pinpoint works with any visual surface: web pages, iOS simulators, macOS apps, S
 
 A review packages into a portable `.pinpoint.zip` you can hand to a designer, a PM, or anyone else with Pinpoint installed. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.
 
-## Try it in one command
+## Try the loop in ten seconds (after install)
 
 ```bash
-pinpoint open assets/demo.pinpoint.zip
+pinpoint demo
 ```
 
-A sample session opens in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit **Send** in the toolbar to see the structured JSON.
+A sample session opens in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit **Send** in the toolbar to see the structured JSON come back.
 
 ## Install
 
@@ -40,7 +40,7 @@ Two paths. Pick whichever you live in.
 ```
 /plugin marketplace add maferland/pinpoint
 /plugin install pinpoint@pinpoint-marketplace
-/install-pinpoint
+/pinpoint:install
 ```
 
 The first two add the marketplace and install the plugin (slash commands + skill). The third builds the CLI binary, links it onto PATH, and registers the MCP server. Restart Claude Code once it finishes.
