@@ -19,6 +19,7 @@ interface ToolbarProps {
   detailsVisible: boolean;
   onToggleDetails: () => void;
   onShowHotkeys: () => void;
+  onBeforeExport: () => Promise<void>;
 }
 
 const SunIcon = () => (
@@ -50,6 +51,14 @@ const QuestionIcon = () => (
   </svg>
 );
 
+const DownloadIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
 const GearIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -71,6 +80,7 @@ export function Toolbar({
   detailsVisible,
   onToggleDetails,
   onShowHotkeys,
+  onBeforeExport,
 }: ToolbarProps) {
   const [doneState, setDoneState] = useState<"idle" | "sending" | "sent">("idle");
   const [countdown, setCountdown] = useState<number>(0);
@@ -149,6 +159,24 @@ export function Toolbar({
         {doneState === "sent" && (prefs.autoCloseAfterDone && countdown > 0
           ? `Sent — closing in ${countdown}s`
           : "Sent — you can close this tab")}
+      </button>
+      <button
+        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        onClick={async () => {
+          // Flush any debounced annotation save so the exported zip reflects
+          // the user's latest edits, not the snapshot from 300ms ago.
+          try { await onBeforeExport(); } catch (err) { console.error("Flush before export failed:", err); }
+          const a = document.createElement("a");
+          a.href = `/api/review/${reviewId}/export`;
+          a.download = `${reviewId}.pinpoint.zip`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }}
+        title="Export session as .pinpoint.zip"
+        aria-label="Export session"
+      >
+        <DownloadIcon />
       </button>
       <button
         className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

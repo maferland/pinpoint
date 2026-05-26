@@ -101,6 +101,35 @@ Classify intent (bug, change request, question, approval) yourself from the comm
 
 After every task on the list is `completed`, capture a fresh screenshot and call `pinpoint review` again. Repeat until the user closes the loop without new annotations.
 
+## Sharing a session
+
+Pinpoint sessions can be packaged into a `.pinpoint.zip` (a real zip with `review.json` + raw image bytes inside) for handoff to another person. The user does the human-side work (clicking, emailing the file); your job is to run the CLI on either end.
+
+**The user hands you a `.pinpoint.zip` (or asks you to open one):**
+
+```
+Bash(command="pinpoint open path/to/bundle.pinpoint.zip")
+```
+
+Behaves like `pinpoint review` — opens the annotator, blocks until Done, prints JSON. Follow the same workflow as §3 above: the moment annotations come back, task-list them before fixing anything.
+
+If the bundle's review id collides with one already on disk, pass `--mode`:
+- `replace` — incoming wins (use when the file is the new source of truth)
+- `append` — keep local annotations, add the bundle's with renumbered ids (parallel annotation)
+- `new` — generate a fresh local id, leave the old review untouched
+
+Without `--mode`, the CLI prompts in a TTY or exits 2 in non-interactive contexts. With no collision, `replace` is implied — safe default.
+
+**The user wants to export their current session to send to someone else:**
+
+Tell them about the ⬇ download button in the toolbar (it's the fastest path). If they prefer the command line:
+
+```
+Bash(command="pinpoint export <reviewId>")   # writes <reviewId>.pinpoint.zip in cwd
+```
+
+The review id is the trailing path segment of the annotator URL (`/review/<id>`).
+
 ## MCP fallback
 
 There's also an MCP server (registered as `pinpoint`) exposing `create_review`, `add_image`, `get_annotations`, `list_reviews` — useful for non-interactive scripting. The CLI is the recommended path; only reach for MCP if you need to programmatically build a review without user interaction.

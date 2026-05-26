@@ -11,6 +11,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { FileReviewStore } from "./store.js";
 import { PreferencesStore, type Preferences } from "./preferences.js";
 import { createServer } from "./server.js";
+import { serialize } from "./export.js";
 import { REVIEW_ID_RE } from "./util.js";
 import type { PinpointAnnotation } from "./types.js";
 
@@ -97,6 +98,22 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
       }
     },
 
+    "GET /api/review/export": async (id, _req, res) => {
+      const review = await store.load(id);
+      if (!review) return json(res, 404, { error: "Review not found" });
+      try {
+        const zip = await serialize(review);
+        res.writeHead(200, {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${id}.pinpoint.zip"`,
+          "Content-Length": String(zip.length),
+        });
+        res.end(zip);
+      } catch (err) {
+        json(res, 500, { error: err instanceof Error ? err.message : "Export failed" });
+      }
+    },
+
     "POST /api/review/finalize": async (id, _req, res) => {
       const review = await store.load(id);
       if (!review) return json(res, 404, { error: "Review not found" });
@@ -144,6 +161,7 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
     const suffix = url.pathname.endsWith("/image") ? "/image"
       : url.pathname.endsWith("/annotations") ? "/annotations"
       : url.pathname.endsWith("/finalize") ? "/finalize"
+      : url.pathname.endsWith("/export") ? "/export"
       : "";
     const routeKey = url.pathname.startsWith("/api/")
       ? `${req.method} /api/review${suffix}`
