@@ -118,6 +118,29 @@ describe("createHttpServer", () => {
     });
   });
 
+  describe("GET /api/review/:id/export", () => {
+    it("returns a zip bundle with review.json + image bytes", async () => {
+      const { parseBundle } = await import("./export.js");
+      const res = await fetch(`${baseUrl}/api/review/test-review/export`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("application/zip");
+      expect(res.headers.get("content-disposition")).toContain("test-review.pinpoint.zip");
+      const zip = Buffer.from(await res.arrayBuffer());
+      // PKZip signature.
+      expect(zip[0]).toBe(0x50);
+      expect(zip[1]).toBe(0x4b);
+      const { manifest, imageBytes } = parseBundle(zip);
+      expect(manifest.kind).toBe("pinpoint-export");
+      expect(manifest.id).toBe("test-review");
+      expect(manifest.images[0].mime).toBe("image/png");
+      expect(imageBytes.get(manifest.images[0].name)?.[0]).toBe(0x89);
+    });
+
+    it("returns 404 for missing review", async () => {
+      expect((await fetch(`${baseUrl}/api/review/nope/export`)).status).toBe(404);
+    });
+  });
+
   describe("POST /api/review/:id/finalize", () => {
     it("resolves waitForFinalize promise", async () => {
       await store.save(makeReview("finalize-1"));

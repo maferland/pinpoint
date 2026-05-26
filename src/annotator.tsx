@@ -87,18 +87,32 @@ export function AnnotatorApp() {
 
   const activeAnnotations = annotations.filter((a) => a.imageIndex === activeImageIndex);
 
+  const pendingAnnotations = useRef<PinpointAnnotation[] | null>(null);
   const persistAnnotations = useCallback(
     (anns: PinpointAnnotation[]) => {
       if (!reviewId) return;
+      pendingAnnotations.current = anns;
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => {
-        saveAnnotations(reviewId, anns).catch((err) =>
+        const snapshot = pendingAnnotations.current;
+        pendingAnnotations.current = null;
+        if (!snapshot) return;
+        saveAnnotations(reviewId, snapshot).catch((err) =>
           console.error("Failed to save annotations:", err)
         );
       }, 300);
     },
     [reviewId]
   );
+
+  const flushAnnotations = useCallback(async () => {
+    if (!reviewId) return;
+    clearTimeout(saveTimer.current);
+    const snapshot = pendingAnnotations.current;
+    pendingAnnotations.current = null;
+    if (!snapshot) return;
+    await saveAnnotations(reviewId, snapshot);
+  }, [reviewId]);
 
   const addAnnotation = useCallback(
     (box: { x: number; y: number; width: number; height: number }) => {
@@ -204,6 +218,7 @@ export function AnnotatorApp() {
         detailsVisible={detailsVisible}
         onToggleDetails={() => setDetailsHidden((v) => !v)}
         onShowHotkeys={() => setHotkeysOpen(true)}
+        onBeforeExport={flushAnnotations}
       />
 
       {imageCount > 1 && (

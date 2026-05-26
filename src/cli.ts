@@ -2,13 +2,20 @@
  * Pinpoint CLI — opens images for annotation, blocks until the user clicks Done,
  * then prints the structured feedback as JSON on stdout.
  *
- * Usage: pinpoint review <image>... [--context "..."] [--port N]
+ * Usage:
+ *   pinpoint review <image>... [--context "..."] [--port N]
+ *   pinpoint export <reviewId> [--output FILE]
+ *   pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
  */
 
+import fs from "fs";
+import os from "os";
 import path from "path";
+import readline from "readline";
 import { FileReviewStore } from "./store.js";
 import { createHttpServer } from "./main.js";
 import { readImageDimensions } from "./server.js";
+import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
 import { generateId, openBrowser } from "./util.js";
 import type { ImageInfo, PinpointReview } from "./types.js";
 
@@ -16,63 +23,65 @@ const FINALIZE_TIMEOUT_MS = 96 * 60 * 60 * 1000;
 
 interface ParsedArgs {
   command: string;
-  images: string[];
+  positional: string[];
   context?: string;
+  output?: string;
+  mode?: MergeMode;
   port: number;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest] = argv;
-  const images: string[] = [];
+  const positional: string[] = [];
   let context: string | undefined;
+  let output: string | undefined;
+  let mode: MergeMode | undefined;
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--context") { context = rest[++i]; continue; }
     if (arg === "--port") { port = parseInt(rest[++i], 10); continue; }
+    if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
+    if (arg === "--mode") {
+      const m = rest[++i];
+      if (m !== "replace" && m !== "append" && m !== "new") {
+        process.stderr.write(`Invalid --mode: ${m} (expected replace|append|new)\n`);
+        process.exit(2);
+      }
+      mode = m;
+      continue;
+    }
     if (arg.startsWith("--")) {
       process.stderr.write(`Unknown flag: ${arg}\n`);
       process.exit(2);
     }
-    images.push(arg);
+    positional.push(arg);
   }
 
-  return { command, images, context, port };
+  return { command, positional, context, output, mode, port };
 }
 
-async function reviewCommand(args: ParsedArgs): Promise<void> {
-  if (args.images.length === 0) {
-    process.stderr.write("usage: pinpoint review <image>... [--context \"...\"]\n");
-    process.exit(2);
-  }
-
-  const resolved: ImageInfo[] = [];
-  for (const p of args.images) {
-    const abs = path.resolve(p);
-    try {
-      const dims = await readImageDimensions(abs);
-      resolved.push({ path: abs, ...dims });
-    } catch {
-      process.stderr.write(`Image not found or unreadable: ${abs}\n`);
-      process.exit(1);
-    }
-  }
-
-  const store = new FileReviewStore();
-  const reviewId = generateId();
-  const port = args.port || 0;
-
-  const review: PinpointReview = {
-    version: "1.0",
-    id: reviewId,
-    images: resolved,
-    context: args.context,
-    createdAt: new Date().toISOString(),
-    annotations: [],
+function reviewToOutput(final: PinpointReview): object {
+  return {
+    context: final.context,
+    images: final.images.map((img) => ({ path: img.path, width: img.width, height: img.height })),
+    annotations: final.annotations.map((a) => ({
+      number: a.number,
+      image: final.images[a.imageIndex]?.path,
+      imageIndex: a.imageIndex,
+      pin: a.pin,
+      box: a.box,
+      comment: a.comment,
+    })),
   };
-  await store.save(review);
+}
 
+async function runAnnotationSession(
+  store: FileReviewStore,
+  reviewId: string,
+  port: number
+): Promise<void> {
   const { server, waitForFinalize } = createHttpServer(store, port);
   await new Promise<void>((resolve) => server.on("listening", resolve));
   const addr = server.address();
@@ -96,36 +105,152 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
     process.exit(1);
   }
 
-  const output = {
-    context: final.context,
-    images: final.images.map((img) => ({ path: img.path, width: img.width, height: img.height })),
-    annotations: final.annotations.map((a) => ({
-      number: a.number,
-      image: final.images[a.imageIndex]?.path,
-      imageIndex: a.imageIndex,
-      pin: a.pin,
-      box: a.box,
-      comment: a.comment,
-    })),
-  };
-
-  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
-  // Force-close keep-alive connections from the browser so server.close fires
-  // immediately. Without this, exit waits up to ~5s (default keepAliveTimeout).
+  process.stdout.write(JSON.stringify(reviewToOutput(final), null, 2) + "\n");
   server.closeAllConnections?.();
   server.close(() => process.exit(0));
-  // Belt and suspenders: hard exit after a short grace period.
   setTimeout(() => process.exit(0), 250).unref();
+}
+
+async function reviewCommand(args: ParsedArgs): Promise<void> {
+  if (args.positional.length === 0) {
+    process.stderr.write("usage: pinpoint review <image>... [--context \"...\"]\n");
+    process.exit(2);
+  }
+
+  const resolved: ImageInfo[] = [];
+  for (const p of args.positional) {
+    const abs = path.resolve(p);
+    try {
+      const dims = await readImageDimensions(abs);
+      resolved.push({ path: abs, ...dims });
+    } catch {
+      process.stderr.write(`Image not found or unreadable: ${abs}\n`);
+      process.exit(1);
+    }
+  }
+
+  const store = new FileReviewStore();
+  const reviewId = generateId();
+  const review: PinpointReview = {
+    version: "1.0",
+    id: reviewId,
+    images: resolved,
+    context: args.context,
+    createdAt: new Date().toISOString(),
+    annotations: [],
+  };
+  await store.save(review);
+
+  await runAnnotationSession(store, reviewId, args.port || 0);
+}
+
+async function exportCommand(args: ParsedArgs): Promise<void> {
+  if (args.positional.length !== 1) {
+    process.stderr.write("usage: pinpoint export <reviewId> [--output FILE|-]\n");
+    process.exit(2);
+  }
+  const [reviewId] = args.positional;
+  const store = new FileReviewStore();
+  const review = await store.load(reviewId);
+  if (!review) {
+    process.stderr.write(`Review "${reviewId}" not found.\n`);
+    process.exit(1);
+  }
+
+  const zip = await serialize(review);
+
+  if (args.output === "-") {
+    process.stdout.write(zip);
+    process.exit(0);
+  }
+  const outPath = path.resolve(args.output ?? `${reviewId}.pinpoint.zip`);
+  await fs.promises.writeFile(outPath, zip);
+  process.stderr.write(`Wrote ${outPath} (${zip.length} bytes)\n`);
+  process.exit(0);
+}
+
+async function promptMode(): Promise<MergeMode> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    while (true) {
+      const answer = await new Promise<string>((resolve) => {
+        rl.question(
+          "A review with this id already exists. [r]eplace, [a]ppend, [n]ew? ",
+          resolve
+        );
+      });
+      const c = answer.trim().toLowerCase();
+      if (c === "r" || c === "replace") return "replace";
+      if (c === "a" || c === "append") return "append";
+      if (c === "n" || c === "new") return "new";
+      process.stderr.write("Please answer r, a, or n.\n");
+    }
+  } finally {
+    rl.close();
+  }
+}
+
+async function openCommand(args: ParsedArgs): Promise<void> {
+  if (args.positional.length !== 1) {
+    process.stderr.write("usage: pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new]\n");
+    process.exit(2);
+  }
+  const filePath = path.resolve(args.positional[0]);
+  let raw: Buffer;
+  try {
+    raw = await fs.promises.readFile(filePath);
+  } catch {
+    process.stderr.write(`Cannot read bundle: ${filePath}\n`);
+    process.exit(1);
+  }
+
+  let bundle;
+  try {
+    bundle = parseBundle(raw);
+  } catch (err) {
+    process.stderr.write(`${err instanceof Error ? err.message : err}: ${filePath}\n`);
+    process.exit(1);
+  }
+
+  const store = new FileReviewStore();
+  const existing = await store.load(bundle.manifest.id);
+
+  let mode = args.mode;
+  if (!mode) {
+    if (existing) {
+      if (process.stdin.isTTY) {
+        mode = await promptMode();
+      } else {
+        process.stderr.write(
+          `Review "${bundle.manifest.id}" already exists locally. Pass --mode replace|append|new (non-interactive).\n`
+        );
+        process.exit(2);
+      }
+    } else {
+      mode = "replace";
+    }
+  }
+
+  const imageDir = path.join(os.tmpdir(), "pinpoint-reviews", `${bundle.manifest.id}-images`);
+  const restored = await deserialize({ bundle, imageDir, mode, existing });
+  await store.save(restored);
+
+  process.stderr.write(`Imported review "${restored.id}" (mode: ${mode})\n`);
+  await runAnnotationSession(store, restored.id, args.port || 0);
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "review") return reviewCommand(args);
+  if (args.command === "export") return exportCommand(args);
+  if (args.command === "open") return openCommand(args);
 
   process.stderr.write(
     "pinpoint — visual annotation CLI\n\n" +
     "Commands:\n" +
-    "  pinpoint review <image>... [--context \"...\"] [--port N]\n"
+    "  pinpoint review <image>... [--context \"...\"] [--port N]\n" +
+    "  pinpoint export <reviewId> [--output FILE|-]\n" +
+    "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n"
   );
   process.exit(args.command ? 2 : 0);
 }

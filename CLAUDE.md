@@ -19,6 +19,12 @@ verdict run          # LLM behavior tests for the using-pinpoint skill
 # CLI (the primary entry point — slash command wraps this)
 pinpoint review <image>... [--context "..."] [--port N]
 
+# Export a review session as a .pinpoint.zip (review.json manifest + raw image bytes)
+pinpoint export <reviewId> [--output FILE|-]
+
+# Open a .pinpoint.zip from someone else — prompts for merge mode if id collides
+pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
+
 # Server modes (legacy / MCP fallback)
 bun src/main.ts --stdio   # MCP stdio + HTTP server on :4747
 bun src/main.ts           # HTTP-only mode
