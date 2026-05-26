@@ -12,13 +12,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run build
       - run: bun test
 
+      - name: Extract changelog section for tag
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          awk -v tag="$tag" '
+            $0 ~ "^## \\["tag"\\]" { capture=1; next }
+            capture && /^## \[/ { exit }
+            capture
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::CHANGELOG.md is missing a [$tag] section — refusing to publish a bare release."
+            exit 1
+          fi
+          prev="$(git describe --abbrev=0 --tags "$tag"^ 2>/dev/null || true)"
+          if [ -n "$prev" ]; then
+            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+              "${{ github.repository }}" "$prev" "$tag" >> release-notes.md
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: release-notes.md
