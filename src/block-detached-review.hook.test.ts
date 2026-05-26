@@ -42,6 +42,8 @@ describe("block-detached-review hook", () => {
     ["unrelated bash", "ls -la"],
     ["unrelated background", "sleep 5 &"],
     ["pinpoint export (no review)", "pinpoint export abc123 &"],
+    ["review mentioned in double-quoted arg", `gh release edit v0.8.0 --notes "blocks \`pinpoint review\` with trailing \`&\` now"`],
+    ["review mentioned in single-quoted arg", `echo 'pinpoint review needs foreground &'`],
     ["non-Bash tool", null],
   ])("allows %s", (label, command) => {
     test("emits no deny decision", async () => {
