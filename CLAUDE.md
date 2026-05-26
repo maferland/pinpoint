@@ -60,7 +60,7 @@ Two delivery paths:
 The `## [vX.Y.Z]` section shows up in the GitHub release body and the in-app upgrade banner — write for the reader scanning it in five seconds.
 
 - **Lead with the user outcome, not the mechanism.** ❌ "A hook blocks detached invocations." ✅ "Your pins don't vanish when an agent backgrounds the review."
-- **Bold one-sentence headline, then explain how and why.** Headline stands on its own.
+- **One bullet, two sentences max.** Bold headline = the outcome. One sentence after = the why or the before/after. If it needs more, it's two changes — split it.
 - **Concrete > generic.** "85k-pixel-tall stitched scroll" beats "very large images".
 - **Implementation detail only if it is the outcome.** "Moved to a DOM overlay" earned its place because it explained why pins stay sharp.
 - **Run `/humanizer` on every entry before committing.** Non-negotiable. The skill strips AI-isms per `~/.claude/rules/writing-style.md` — if it rewrites a line, that line was AI slop.
