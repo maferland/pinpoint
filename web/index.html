@@ -114,11 +114,13 @@
     :root.theme-light .theme-toggle .sun { display: none; }
     :root.theme-light .theme-toggle .moon { display: block; }
 
-    /* Image swap (dark image hidden in light mode and vice-versa) */
-    .img-light { display: none; }
-    .img-dark { display: block; }
-    :root.theme-light .img-light { display: block; }
-    :root.theme-light .img-dark { display: none; }
+    /* Image swap (dark image hidden in light mode and vice-versa).
+       Selectors are scoped under .hero-media to beat the .hero-media img
+       base rule's specificity (1 class + 1 element). */
+    .hero-media .img-light { display: none; }
+    .hero-media .img-dark { display: block; }
+    :root.theme-light .hero-media .img-light { display: block; }
+    :root.theme-light .hero-media .img-dark { display: none; }
 
     /* Hero */
     .hero { padding: 72px 0 32px; text-align: center; }
@@ -363,7 +365,7 @@
       </div>
       <div class="card">
         <h3>Claude Code via MCP</h3>
-        <p>Pinpoint registers as an MCP server during install, so Claude can open and read review sessions inline during a conversation — useful for scripted reviews or for agents driving Pinpoint without user-typed slash commands.</p>
+        <p>The install registers an MCP server so Claude can drive Pinpoint inline — no slash command required.</p>
       </div>
       <div class="card">
         <h3>Direct CLI</h3>
