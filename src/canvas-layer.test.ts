@@ -24,6 +24,14 @@ describe("getImageLayout", () => {
       const layout = getImageLayout(viewport, { width: 200, height: 100 }, "fit");
       expect(layout.drawW).toBeGreaterThan(200);
     });
+
+    it("falls back to single-axis fit on stitched scrolls instead of a sliver", () => {
+      // 389x85910 fit-both-axes is a 4-px-wide stripe — unreadable. Switch to
+      // width-fit (capped at 1x) so the image is visible with vertical scroll.
+      const layout = getImageLayout(viewport, { width: 389, height: 85910 }, "fit");
+      expect(layout.drawW).toBe(389);
+      expect(layout.drawH).toBe(85910);
+    });
   });
 
   describe("actual mode", () => {
