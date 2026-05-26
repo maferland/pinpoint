@@ -59,9 +59,11 @@ Cut a release when you want the banner to surface a change. Steps (run from `mai
 
 ```bash
 # 1. Bump version in package.json (patch for bug fixes, minor for features)
-# 2. Commit the bump
-git add package.json && git commit -m "vX.Y.Z"
-# 3. Tag and push — release.yml builds and publishes auto-generated notes
+# 2. Add a `## [vX.Y.Z]` section at the top of CHANGELOG.md — user-facing bullets,
+#    not implementation detail. release.yml fails the build if this section is missing.
+# 3. Commit both
+git add package.json CHANGELOG.md && git commit -m "vX.Y.Z"
+# 4. Tag and push — release.yml extracts the CHANGELOG section as the release body
 git tag vX.Y.Z && git push origin main vX.Y.Z
 ```
 
