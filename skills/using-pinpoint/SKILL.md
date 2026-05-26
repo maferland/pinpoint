@@ -56,6 +56,10 @@ The Bash call:
 
 Always pass `--context` — it shows in the toolbar and orients the user.
 
+**Never detach the call.** No trailing `&`, no `nohup`, no `disown`. The CLI's stdout JSON is the whole point — detaching throws it away, the user clicks Done, and you never see the annotations. A `PreToolUse` hook will hard-block detached invocations.
+
+If you need to do other work while the user annotates, use the Bash tool's `run_in_background: true` parameter (not shell `&`). The harness notifies you when it completes and you read stdout via `BashOutput`.
+
 The user can also invoke the slash command `/pinpoint-review <image>...` themselves; the slash command is just a thin wrapper around the same CLI.
 
 ### 3. Track every annotation as a task — BEFORE fixing anything
@@ -145,6 +149,7 @@ There's also an MCP server (registered as `pinpoint`) exposing `create_review`, 
 ## Do NOT
 
 - Don't emit `/pinpoint-review …` as plain text expecting it to run — it won't. Call `Bash(pinpoint review …)` instead.
+- Don't detach with `&`, `nohup`, or `disown` — stdout is the JSON you need; detaching throws it away. Use foreground or `run_in_background: true`.
 - Don't add preamble around the call ("Click Done in the browser when finished") — the user knows the flow
 - Don't tell the user to type "done" — clicking Done in the UI handles the handoff
 - Don't try to call MCP tools mid-review — the Bash call blocks until Done
