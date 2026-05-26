@@ -1,3 +1,7 @@
+## [v0.8.1]
+
+- **The detached-review hook no longer trips on quoted strings.** v0.8.0 denied any Bash command that mentioned both `pinpoint review` and `&` anywhere in the command line — including inside `--notes` strings, commit messages, or release notes about the hook itself. The hook now strips quoted spans before matching, so only real shell invocations get blocked.
+
 ## [v0.8.0]
 
 - **Backgrounded `pinpoint review` is now blocked.** Spawning the CLI with a trailing `&` used to throw away the annotation JSON. You'd click Done, the agent would never see your pins, and the next message would be it asking what you wanted. A hook now denies detached invocations (also `nohup` and `disown`) and tells the agent to use the foreground or `run_in_background`.
