@@ -1,3 +1,7 @@
+## [v0.8.0]
+
+- **Agents can't lose your annotations to a detached `&` anymore.** Past Claude sessions sometimes spawned `pinpoint review` with `&` / `nohup`, the user clicked Done, and the JSON output was thrown away — leaving the agent oblivious to the feedback. A PreToolUse hook now hard-blocks these invocations and points at the right alternatives (foreground or `run_in_background`).
+
 ## [v0.7.0]
 
 - **Massive screenshots now render correctly.** Stitched-scroll captures and ultra-wide panoramas no longer go blank past the browser's canvas limit (~16k px). The image downsamples gracefully on the long axis and scrolls.
