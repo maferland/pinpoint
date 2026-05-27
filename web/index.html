@@ -25,6 +25,11 @@
       --primary: #ef4444;
       --primary-hover: #dc2626;
       --code-bg: #0f1115;
+      --tk-cmd: #7dd3fc;
+      --tk-flag: #c4b5fd;
+      --tk-str: #fde68a;
+      --tk-num: #fdba74;
+      --tk-key: #93c5fd;
       --max: 920px;
     }
     @media (prefers-color-scheme: light) {
@@ -37,8 +42,22 @@
         --primary: #ef4444;
         --primary-hover: #dc2626;
         --code-bg: #f1f3f6;
+        --tk-cmd: #0369a1;
+        --tk-flag: #6d28d9;
+        --tk-str: #b45309;
+        --tk-num: #c2410c;
+        --tk-key: #1d4ed8;
       }
     }
+
+    /* Code highlighting tokens (hand-marked, no runtime highlighter) */
+    .tk-cmd { color: var(--tk-cmd); }
+    .tk-flag { color: var(--tk-flag); }
+    .tk-str { color: var(--tk-str); }
+    .tk-var { color: var(--muted); font-style: italic; }
+    .tk-op { color: var(--muted); }
+    .tk-key { color: var(--tk-key); }
+    .tk-num { color: var(--tk-num); }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
@@ -91,12 +110,37 @@
     }
     .install code { color: var(--text); }
     .copy {
-      background: transparent; border: 1px solid var(--border); color: var(--muted);
-      padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;
-      font-family: inherit;
+      background: transparent; border: none; color: var(--muted);
+      padding: 4px; border-radius: 4px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
     }
-    .copy:hover { color: var(--text); border-color: var(--muted); }
-    .copy.copied { color: var(--primary); border-color: var(--primary); }
+    .copy:hover { color: var(--text); background: rgba(127,127,127,0.1); }
+    .copy.copied { color: var(--primary); }
+    .copy svg { width: 16px; height: 16px; display: block; }
+    .copy .check { display: none; }
+    .copy.copied .clip { display: none; }
+    .copy.copied .check { display: block; }
+    .inline-icon { width: 14px; height: 14px; vertical-align: -2px; display: inline; }
+
+    /* Per-pre copy buttons */
+    .cb { position: relative; }
+    .cb .pre-copy {
+      position: absolute; top: 8px; right: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 4px; border-radius: 4px;
+      color: var(--muted); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      opacity: 0.4; transition: opacity 0.15s, color 0.15s;
+    }
+    .cb:hover .pre-copy, .cb .pre-copy:focus-visible { opacity: 1; }
+    .cb .pre-copy:hover { color: var(--text); }
+    .cb .pre-copy.copied { color: var(--primary); opacity: 1; }
+    .cb .pre-copy svg { width: 12px; height: 12px; display: block; }
+    .cb .pre-copy .check { display: none; }
+    .cb .pre-copy.copied .clip { display: none; }
+    .cb .pre-copy.copied .check { display: block; }
 
     /* Hero media */
     .hero-media {
@@ -119,9 +163,10 @@
     .card {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
       padding: 24px;
+      display: flex; flex-direction: column;
     }
     .card h3 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
-    .card p { color: var(--muted); margin: 0 0 12px; font-size: 14px; line-height: 1.55; }
+    .card p { color: var(--muted); margin: 0 0 12px; font-size: 14px; line-height: 1.55; flex: 1; }
     .card pre {
       background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
       padding: 10px 12px; margin: 0; font-size: 13px; overflow-x: auto;
@@ -178,7 +223,7 @@
     <nav class="nav">
       <a href="#how">How it works</a>
       <a href="#use">Use with</a>
-      <a href="#sharing">Sharing</a>
+      <a href="#sharing">Handoff</a>
       <a href="https://github.com/maferland/pinpoint">GitHub</a>
     </nav>
   </div>
@@ -186,17 +231,28 @@
 
 <section class="hero">
   <div class="container">
-    <h1>Point at what's wrong.<br>Claude fixes it.</h1>
+    <h1>Visual feedback for AI coding agents.</h1>
     <p class="pitch">Annotate any screenshot in your browser. Click to drop pins, drag to draw boxes, type comments. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix.</p>
 
     <div class="install" role="group" aria-label="Install command">
-      <code id="install-cmd">curl -fsSL https://pinpoint.maferland.com/install.sh | bash</code>
-      <button class="copy" type="button" aria-label="Copy install command">Copy</button>
+      <code id="install-cmd"><span class="tk-cmd">curl</span> <span class="tk-flag">-fsSL</span> https://pinpoint.maferland.com/install.sh <span class="tk-op">|</span> <span class="tk-cmd">bash</span></code>
+      <button class="copy" type="button" aria-label="Copy install command" title="Copy">
+        <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </button>
     </div>
 
     <!-- TODO: swap in the loop GIF when recorded. -->
     <div class="hero-media">
-      <img src="/assets/screenshot-light.png" alt="Pinpoint annotation UI">
+      <picture>
+        <source srcset="/assets/screenshot-dark.png" media="(prefers-color-scheme: dark)">
+        <img src="/assets/screenshot-light.png" alt="Pinpoint annotation UI">
+      </picture>
     </div>
   </div>
 </section>
@@ -239,12 +295,12 @@
 
     <h3 style="margin-top:40px; font-size:14px; font-weight:600; color:var(--muted);">What Pinpoint sends back</h3>
 <pre class="sample">{
-  "annotations": [
+  <span class="tk-key">"annotations"</span>: [
     {
-      "number": 1,
-      "image": "/tmp/screenshot.png",
-      "box": { "x": 10.2, "y": 5.3, "width": 35.0, "height": 12.5 },
-      "comment": "Button text is truncated on mobile"
+      <span class="tk-key">"number"</span>: <span class="tk-num">1</span>,
+      <span class="tk-key">"image"</span>: <span class="tk-str">"/tmp/screenshot.png"</span>,
+      <span class="tk-key">"box"</span>: { <span class="tk-key">"x"</span>: <span class="tk-num">10.2</span>, <span class="tk-key">"y"</span>: <span class="tk-num">5.3</span>, <span class="tk-key">"width"</span>: <span class="tk-num">35.0</span>, <span class="tk-key">"height"</span>: <span class="tk-num">12.5</span> },
+      <span class="tk-key">"comment"</span>: <span class="tk-str">"Button text is truncated on mobile"</span>
     }
   ]
 }</pre>
@@ -260,24 +316,26 @@
       <div class="card">
         <h3>Claude Code</h3>
         <p>Slash command, no setup beyond install.</p>
-        <pre>/pinpoint-review /tmp/screenshot.png</pre>
+        <div class="cb"><pre><span class="tk-cmd">/pinpoint-review</span> /tmp/screenshot.png</pre></div>
       </div>
       <div class="card">
         <h3>Cursor, Aider, anything with MCP</h3>
-        <p>Four tools: <code>create_review</code>, <code>add_image</code>, <code>get_annotations</code>, <code>list_reviews</code>. Same browser UI, same return shape.</p>
-        <pre>claude mcp add pinpoint \
-  -- bun ~/.pinpoint/src/main.ts --stdio</pre>
+        <p>Pinpoint registers itself as an MCP server during install. Any agent that speaks MCP gets four tools:</p>
+        <pre><span class="tk-cmd">create_review</span>    open browser, return session id
+<span class="tk-cmd">add_image</span>        attach another screenshot
+<span class="tk-cmd">get_annotations</span>  read structured feedback
+<span class="tk-cmd">list_reviews</span>     list active sessions</pre>
       </div>
       <div class="card">
         <h3>Direct CLI</h3>
         <p>Spawns the server, opens the browser, blocks until you hit Send, prints JSON to stdout. Pipe it anywhere.</p>
-        <pre>pinpoint review screenshot.png \
-  --context "Login page after auth changes"</pre>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> review screenshot.png <span class="tk-op">\</span>
+  <span class="tk-flag">--context</span> <span class="tk-str">"Login page after auth changes"</span></pre></div>
       </div>
       <div class="card">
         <h3>Try the loop in 10 seconds</h3>
         <p>After install, no screenshot needed. Opens a sample session in your browser with starter pins.</p>
-        <pre>pinpoint demo</pre>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> demo</pre></div>
       </div>
     </div>
   </div>
@@ -291,13 +349,13 @@
     <div class="grid-2">
       <div class="card">
         <h3>Export</h3>
-        <p>Click the ⬇ button in the toolbar, or from the command line:</p>
-        <pre>pinpoint export &lt;reviewId&gt;</pre>
+        <p>Click the <svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> button in the toolbar, or from the command line:</p>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> export <span class="tk-var">&lt;reviewId&gt;</span></pre></div>
       </div>
       <div class="card">
-        <h3>Open someone else's bundle</h3>
+        <h3>Open someone else's session</h3>
         <p>Behaves like <code>pinpoint review</code>. Same browser UI, blocks until you hit Send, prints JSON.</p>
-        <pre>pinpoint open bundle.pinpoint.zip</pre>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> open session.pinpoint.zip</pre></div>
       </div>
     </div>
   </div>
@@ -305,7 +363,7 @@
 
 <footer>
   <div class="container row">
-    <span>Pinpoint is MIT licensed. Built by <a href="https://maferland.com">Marc-Antoine Ferland</a>.</span>
+    <span>Pinpoint is <a href="https://github.com/maferland/pinpoint/blob/main/LICENSE">MIT licensed</a>. Built by <a href="https://maferland.com">Marc-Antoine Ferland</a>.</span>
     <span>
       <a href="https://github.com/maferland/pinpoint">GitHub</a> ·
       <a href="https://github.com/maferland/pinpoint/blob/main/CHANGELOG.md">Changelog</a> ·
@@ -316,15 +374,39 @@
 
 <script>
   document.querySelector('.copy').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
     const cmd = document.getElementById('install-cmd').textContent;
     try {
       await navigator.clipboard.writeText(cmd);
-      e.target.textContent = 'Copied';
-      e.target.classList.add('copied');
-      setTimeout(() => { e.target.textContent = 'Copy'; e.target.classList.remove('copied'); }, 1500);
+      btn.classList.add('copied');
+      btn.setAttribute('title', 'Copied');
+      setTimeout(() => { btn.classList.remove('copied'); btn.setAttribute('title', 'Copy'); }, 1500);
     } catch {
-      e.target.textContent = 'Press ⌘C';
+      btn.setAttribute('title', 'Press ⌘C');
     }
+  });
+
+  // Inject copy buttons into every .cb wrapper.
+  const clipSvg = `<svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const checkSvg = `<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  document.querySelectorAll('.cb').forEach((cb) => {
+    const pre = cb.querySelector('pre');
+    if (!pre) return;
+    const btn = document.createElement('button');
+    btn.className = 'pre-copy';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy');
+    btn.innerHTML = clipSvg + checkSvg;
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.textContent.trim());
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1500);
+      } catch {
+        btn.setAttribute('title', 'Press ⌘C');
+      }
+    });
+    cb.appendChild(btn);
   });
 </script>
 
