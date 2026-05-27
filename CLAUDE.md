@@ -1,6 +1,6 @@
 # Pinpoint
 
-Browser annotation UI for visual feedback. Primary surface: `/pinpoint-review` slash command via the `pinpoint` CLI binary. Fallback: MCP server (registered as `pinpoint` via `claude mcp add`) for non-interactive scripting.
+Browser annotation UI for visual feedback. Primary surface: `/pinpoint:review` slash command via the `pinpoint` CLI binary. Fallback: MCP server (registered as `pinpoint` via `claude mcp add`) for non-interactive scripting.
 
 ## Commands
 
@@ -36,8 +36,8 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - `src/cli.ts` — `pinpoint review` CLI; spawns HTTP server, opens browser, blocks on `waitForFinalize`, prints JSON to stdout
 - `src/main.ts` — HTTP server (UI + REST API: GET review, GET image, PUT annotations, POST finalize) + MCP entrypoint
 - `src/server.ts` — MCP tool registry (create_review, add_image, get_annotations, list_reviews)
-- `src/store.ts` — file-based review persistence under `os.tmpdir()/pinpoint-reviews/`
-- `commands/pinpoint-review.md` — slash command (`disable-model-invocation: true`) that shells out to `pinpoint review`
+- `src/store.ts` — file-based review persistence under `os.tmpdir()/pinpoint:reviews/`
+- `commands/pinpoint:review.md` — slash command (`disable-model-invocation: true`) that shells out to `pinpoint review`
 - `skills/using-pinpoint/SKILL.md` — guidance for Claude on when/how to use the slash command
 
 ## Constraints

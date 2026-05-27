@@ -35,9 +35,9 @@ screencapture -x /tmp/screenshot.png
 xcrun simctl io booted screenshot /tmp/screenshot.png
 ```
 
-### 2. Invoke pinpoint via Bash — DO NOT just emit `/pinpoint-review` as text
+### 2. Invoke pinpoint via Bash — DO NOT just emit `/pinpoint:review` as text
 
-Plain text like `/pinpoint-review /tmp/foo.png` is just text — it doesn't run anything. To actually open the annotation UI you must call the `pinpoint` CLI through the Bash tool:
+Plain text like `/pinpoint:review /tmp/foo.png` is just text — it doesn't run anything. To actually open the annotation UI you must call the `pinpoint` CLI through the Bash tool:
 
 ```
 Bash(command="pinpoint review /tmp/screenshot.png --context 'Login page after auth changes — suspect spacing bug under .form-row'")
@@ -51,16 +51,16 @@ Bash(command="pinpoint review /tmp/before.png /tmp/after.png --context '...'")
 
 The Bash call:
 - prints the URL on stderr and opens the user's browser
-- blocks until the user clicks **Done** in the browser
+- blocks until the user hits **Send** in the toolbar
 - prints the structured annotations as JSON on stdout
 
 Always pass `--context` — it shows in the toolbar and orients the user.
 
-**Never detach the call.** No trailing `&`, no `nohup`, no `disown`. The CLI's stdout JSON is the whole point — detaching throws it away, the user clicks Done, and you never see the annotations. A `PreToolUse` hook will hard-block detached invocations.
+**Never detach the call.** No trailing `&`, no `nohup`, no `disown`. The CLI's stdout JSON is the whole point — detaching throws it away, the user clicks Send, and you never see the annotations. A `PreToolUse` hook will hard-block detached invocations.
 
 If you need to do other work while the user annotates, use the Bash tool's `run_in_background: true` parameter (not shell `&`). The harness notifies you when it completes and you read stdout via `BashOutput`.
 
-The user can also invoke the slash command `/pinpoint-review <image>...` themselves; the slash command is just a thin wrapper around the same CLI.
+The user can also invoke the slash command `/pinpoint:review <image>...` themselves; the slash command is just a thin wrapper around the same CLI.
 
 ### 3. Track every annotation as a task — BEFORE fixing anything
 
@@ -115,7 +115,7 @@ Pinpoint sessions can be packaged into a `.pinpoint.zip` (a real zip with `revie
 Bash(command="pinpoint open path/to/bundle.pinpoint.zip")
 ```
 
-Behaves like `pinpoint review` — opens the annotator, blocks until Done, prints JSON. Follow the same workflow as §3 above: the moment annotations come back, task-list them before fixing anything.
+Behaves like `pinpoint review` — opens the annotator, blocks until the user hits Send in the toolbar, prints JSON. Follow the same workflow as §3 above: the moment annotations come back, task-list them before fixing anything.
 
 If the bundle's review id collides with one already on disk, pass `--mode`:
 - `replace` — incoming wins (use when the file is the new source of truth)
@@ -148,9 +148,9 @@ There's also an MCP server (registered as `pinpoint`) exposing `create_review`, 
 
 ## Do NOT
 
-- Don't emit `/pinpoint-review …` as plain text expecting it to run — it won't. Call `Bash(pinpoint review …)` instead.
+- Don't emit `/pinpoint:review …` as plain text expecting it to run — it won't. Call `Bash(pinpoint review …)` instead.
 - Don't detach with `&`, `nohup`, or `disown` — stdout is the JSON you need; detaching throws it away. Use foreground or `run_in_background: true`.
-- Don't add preamble around the call ("Click Done in the browser when finished") — the user knows the flow
-- Don't tell the user to type "done" — clicking Done in the UI handles the handoff
-- Don't try to call MCP tools mid-review — the Bash call blocks until Done
+- Don't add preamble around the call ("Click the Send button when finished") — the user knows the flow
+- Don't tell the user to type "done" — hitting the Send button (labeled "Looks good" or "Send N comments") handles the handoff
+- Don't try to call MCP tools mid-review — the Bash call blocks until the user submits
 - Don't guess what the user sees — let them annotate

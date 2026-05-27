@@ -6,6 +6,7 @@
  *   pinpoint review <image>... [--context "..."] [--port N]
  *   pinpoint export <reviewId> [--output FILE]
  *   pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
+ *   pinpoint demo [--port N]
  */
 
 import fs from "fs";
@@ -239,18 +240,38 @@ async function openCommand(args: ParsedArgs): Promise<void> {
   await runAnnotationSession(store, restored.id, args.port || 0);
 }
 
+function resolveDemoBundle(): string {
+  // The CLI binary lives at <repo>/dist/cli.js after build, or <repo>/src/cli.ts
+  // in dev. Either way the bundle is one level up at <repo>/assets/demo.pinpoint.zip.
+  return path.resolve(import.meta.dirname!, "..", "assets", "demo.pinpoint.zip");
+}
+
+async function demoCommand(args: ParsedArgs): Promise<void> {
+  const bundlePath = resolveDemoBundle();
+  if (!fs.existsSync(bundlePath)) {
+    process.stderr.write(
+      `Demo bundle not found at ${bundlePath}.\n` +
+      `Reinstall pinpoint or run from a working checkout of the repo.\n`
+    );
+    process.exit(1);
+  }
+  await openCommand({ ...args, positional: [bundlePath], mode: "new" });
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "review") return reviewCommand(args);
   if (args.command === "export") return exportCommand(args);
   if (args.command === "open") return openCommand(args);
+  if (args.command === "demo") return demoCommand(args);
 
   process.stderr.write(
     "pinpoint — visual annotation CLI\n\n" +
     "Commands:\n" +
     "  pinpoint review <image>... [--context \"...\"] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
-    "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n"
+    "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n" +
+    "  pinpoint demo [--port N]\n"
   );
   process.exit(args.command ? 2 : 0);
 }

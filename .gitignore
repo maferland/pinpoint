@@ -8,3 +8,4 @@ dist/
 .verdict-runs/
 test-results/
 playwright-report/
+.vercel
