@@ -34,7 +34,7 @@ test("clicking outside the popover saves the typed comment", async ({ page, pinp
   expect(json.annotations[0].comment).toBe("typed but not submitted");
 });
 
-test("Escape discards the typed draft", async ({ page, pinpointCli }) => {
+test("Escape discards the typed draft and the empty pin", async ({ page, pinpointCli }) => {
   await page.goto(pinpointCli.url);
 
   const canvas = page.locator("canvas");
@@ -42,10 +42,13 @@ test("Escape discards the typed draft", async ({ page, pinpointCli }) => {
   const cbox = await canvas.boundingBox();
   expect(cbox).not.toBeNull();
 
-  // Wait for the PUT triggered by addAnnotation. No second PUT will follow
-  // because Escape sets cancelRef and the save-on-unmount short-circuits.
-  const pinSaved = page.waitForResponse((res) =>
-    res.url().endsWith("/annotations") && res.request().method() === "PUT" && res.ok()
+  // Wait for the PUT triggered by addAnnotation. The popover then unmounts on
+  // Escape and triggers a follow-up PUT that removes the now-empty pin.
+  const pinRemoved = page.waitForResponse((res) =>
+    res.url().endsWith("/annotations") &&
+    res.request().method() === "PUT" &&
+    res.ok() &&
+    JSON.parse(res.request().postData() ?? "[]").length === 0
   );
 
   await page.mouse.click(cbox!.x + cbox!.width / 2, cbox!.y + cbox!.height / 2);
@@ -54,11 +57,10 @@ test("Escape discards the typed draft", async ({ page, pinpointCli }) => {
   await textarea.fill("draft to throw away");
   await textarea.press("Escape");
   await expect(textarea).toBeHidden();
-  await pinSaved;
+  await pinRemoved;
 
-  await page.getByRole("button", { name: "Send 1 comment" }).click();
+  // Empty pin cleaned itself up, so the toolbar shows the no-comments state.
+  await page.getByRole("button", { name: "Looks good" }).click();
   const json = await pinpointCli.finalized();
-  // Pin was placed but its comment should be empty (Esc discards the draft).
-  expect(json.annotations).toHaveLength(1);
-  expect(json.annotations[0].comment).toBe("");
+  expect(json.annotations).toHaveLength(0);
 });
