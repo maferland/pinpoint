@@ -14,7 +14,7 @@ Hi HN,
 
 When I'm working with Claude Code on UI changes, I spend a lot of time describing what's wrong in prose. "The second card in the grid has the wrong padding, looks like maybe 4px too much on the right, and the heading inside it is misaligned with the body text." It's slow, and I'm not always right about what I'm seeing.
 
-Pinpoint replaces that prose with pins and boxes on a screenshot. You run a slash command, your browser opens, you click where the problem is, type a comment, hit Done. The agent gets back structured JSON with coordinates as percentages and your comment. Then it fixes it. The whole round-trip is usually under a minute.
+Pinpoint replaces that prose with pins and boxes on a screenshot. You run a slash command, your browser opens, you click where the problem is, type a comment, hit Send. The agent gets back structured JSON with coordinates as percentages and your comment. Then it fixes it. The whole round-trip is usually under a minute.
 
 The mechanism is borrowed from Plannotator: a slash command shells out to a CLI binary, the CLI blocks until you signal done, the agent picks up structured stdout. What's new is that visual review is now a first-class step in the loop, and the session is portable.
 

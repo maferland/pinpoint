@@ -15,11 +15,13 @@
 </p>
 
 <!-- TODO: replace screenshot above with a short GIF of the full loop:
-     screenshot → pin → comment → Done → Claude applies the fix. -->
+     screenshot → pin → comment → hit Send → Claude applies the fix. -->
 
-Annotate any screenshot in your browser. Click to drop pins, drag to draw boxes, type comments. Send the session back to your coding agent, or export it as a `.pinpoint.zip` and hand it to a designer, a PM, or another reviewer. They open it, add their pins, send it back. No shared tooling required.
+You make a UI change. Take a screenshot. Run `/pinpoint-review screenshot.png`. The browser opens. You click on what's wrong, type a sentence, hit Send. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix. Round-trip is usually under a minute.
 
 Pinpoint works with any visual surface: web pages, iOS simulators, macOS apps, Storybook, design mockups. No target app modification needed.
+
+A review packages into a portable `.pinpoint.zip` you can hand to a designer, a PM, or anyone else with Pinpoint installed. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.
 
 ## Try it in one command
 
@@ -27,9 +29,23 @@ Pinpoint works with any visual surface: web pages, iOS simulators, macOS apps, S
 pinpoint open assets/demo.pinpoint.zip
 ```
 
-A sample session opens in your browser with a few starter pins on a real screenshot. Edit them, draw your own, click **Done** to see the structured JSON.
+A sample session opens in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit **Send** in the toolbar to see the structured JSON.
 
 ## Install
+
+Two paths. Pick whichever you live in.
+
+### From inside Claude Code
+
+```
+/plugin marketplace add maferland/pinpoint
+/plugin install pinpoint@pinpoint-marketplace
+/install-pinpoint
+```
+
+The first two add the marketplace and install the plugin (slash commands + skill). The third builds the CLI binary, links it onto PATH, and registers the MCP server. Restart Claude Code once it finishes.
+
+### From the terminal
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/maferland/pinpoint/main/install.sh | bash
@@ -60,7 +76,7 @@ Pinpoint speaks two protocols. Pick the one your agent supports.
 /pinpoint-review /tmp/screenshot.png
 ```
 
-The browser opens, you annotate, click **Done**, the structured JSON lands in the conversation.
+The browser opens, you annotate, hit **Send** in the toolbar, the structured JSON lands in the conversation.
 
 ### Anywhere with MCP: Cursor, Aider, Continue, raw API, etc.
 
@@ -79,7 +95,7 @@ Register the MCP server once (`claude mcp add pinpoint -- ...` above, or your ag
 pinpoint review <image>... [--context "..."] [--port N]
 ```
 
-Spawns the annotation server, opens the browser, blocks until you click **Done**, prints the structured JSON to stdout. Pipe it wherever you want.
+Spawns the annotation server, opens the browser, blocks until you hit **Send** in the toolbar, prints the structured JSON to stdout. Pipe it wherever you want.
 
 ## How the annotation UI works
 
@@ -88,7 +104,7 @@ Spawns the annotation server, opens the browser, blocks until you click **Done**
 - **Click a pin** → popover with a textarea, type your note
 - **⌘Enter** saves, **Esc** cancels
 - Multiple screenshots → filmstrip with arrow keys to switch
-- **Done** in the toolbar → sends annotations back, closes the loop
+- The send button in the toolbar describes itself: **Looks good** if you've made no annotations, **Send 3 comments** (or whatever the count is) if you have. Either way it closes the loop and returns control to the agent.
 
 What Pinpoint sends back:
 
@@ -125,7 +141,7 @@ See [CHANGELOG.md](CHANGELOG.md). Current version: v0.6.0.
 
 ## Credits
 
-Architecture inspired by [plannotator](https://github.com/backnotprop/plannotator): slash command shells out to a CLI binary, blocks until the user signals done, pipes structured stdout back into the conversation. Pinpoint applies that pattern to image annotation, and adds a portable session format on top.
+Architecture inspired by [plannotator](https://github.com/backnotprop/plannotator): slash command shells out to a CLI binary, blocks until the user finishes their part, pipes structured stdout back into the conversation. Pinpoint applies that pattern to image annotation, and adds a portable session format on top.
 
 ## License
 

@@ -10,7 +10,7 @@ Just shipped v0.6.0 of Pinpoint, a slash command for visual feedback to your cod
 
 Visual feedback for AI coding agents is a missing piece in most workflows. You can describe a UI bug in prose, but it's lossy, slow, and information is lost in both directions.
 
-I built Pinpoint to fix that loop. Slash command opens your browser, you click on a screenshot, type a comment, hit Done. The agent gets structured coordinates and your note. Round-trip is under a minute.
+I built Pinpoint to fix that loop. Slash command opens your browser, you click on a screenshot, type a comment, hit Send. The agent gets structured coordinates and your note. Round-trip is under a minute.
 
 v0.6.0 adds a portable session format. Export a review as a `.pinpoint.zip`, share with anyone, re-import with their annotations. Designers and PMs can participate in the visual review without installing the same agent.
 
