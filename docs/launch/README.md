@@ -26,7 +26,8 @@ All drafts. Edit them in your voice before posting.
 ## Deploy state (pinpoint.maferland.com)
 
 - Vercel project linked under `mafer/web` — rename to `pinpoint` in the dashboard. The repo directory was also renamed from `web/` to `site/` so future `vercel link` runs default to a clean name if you ever recreate the project.
-- Production deploy: `https://web-mafer.vercel.app` — currently 401-gated by Vercel's Deployment Protection (will move to the `pinpoint` alias once renamed).
+- Aliases: `https://web-mafer.vercel.app` (auto-generated default) and `https://pinpoint-mafer.vercel.app` (set via `vercel alias set`). Both point at the same latest production deploy.
+- Both aliases currently return 401 because Vercel Deployment Protection is on.
 - Custom domain requested. Vercel returned: add `A pinpoint.maferland.com → 76.76.21.21` at your DNS provider (your nameservers are AWS Route 53 / awsdns-*).
 
 To finish:
