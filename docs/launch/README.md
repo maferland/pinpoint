@@ -23,6 +23,23 @@ All drafts. Edit them in your voice before posting.
 - Skill docs updated for export/import flow and corrected button text
 - All five launch copy drafts in this folder
 
+## Deploy state (pinpoint.maferland.com)
+
+- Vercel project linked under `mafer/web` (rename to `pinpoint` in the dashboard if you want a cleaner default URL).
+- Production deploy: `https://web-mafer.vercel.app` — currently 401-gated by Vercel's Deployment Protection.
+- Custom domain requested. Vercel returned: add `A pinpoint.maferland.com → 76.76.21.21` at your DNS provider (your nameservers are AWS Route 53 / awsdns-*).
+
+To finish:
+
+1. **Disable Deployment Protection.** Vercel dashboard → project `web` → Settings → Deployment Protection → set to "Disabled" or "Standard (Vercel Authentication) Only Preview Deployments". Without this the site returns 401 to anonymous visitors.
+2. **Add the DNS A record** at Route 53 (or wherever the maferland.com zone lives): `A pinpoint.maferland.com 76.76.21.21`. Vercel issues the cert automatically once it resolves.
+3. **(Optional) Rename the Vercel project** from `web` to `pinpoint`. The custom domain works either way, but the dashboard reads cleaner.
+
+After DNS resolves:
+
+- `curl -fsSL https://pinpoint.maferland.com/install.sh` should return the script body.
+- Update root `README.md` install command to point at `https://pinpoint.maferland.com/install.sh` (currently still the raw GitHub URL).
+
 ## What's still on you
 
 ### Before posting
