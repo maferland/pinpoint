@@ -231,6 +231,22 @@ describe("pinpoint export/open cli", () => {
     expect(code).toBe(1);
     expect(cli.stderr).toMatch(/not a valid zip/i);
   });
+
+  it("`pinpoint demo` opens the bundled demo from any cwd", async () => {
+    const port = pickPort();
+    const cli = spawnCli(["demo", "--port", String(port)]);
+    const reviewId = await waitForReviewId(() => cli.stderr);
+
+    const review = await (await fetch(`http://localhost:${port}/api/review/${reviewId}`)).json() as {
+      annotations: Array<{ comment: string }>;
+      images: Array<{ width: number }>;
+    };
+    expect(review.annotations).toHaveLength(3);
+    expect(review.images[0].width).toBe(2880);
+
+    await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
+    expect(await cli.exited).toBe(0);
+  }, 10000);
 });
 
 describe("pinpoint review cli", () => {

@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pinpoint — visual feedback for AI coding agents</title>
+  <meta name="description" content="Annotate screenshots in your browser and feed structured visual feedback back to Claude Code, Cursor, or any MCP-capable agent. Open-source.">
+  <meta name="keywords" content="AI coding agent, visual feedback, screenshot annotation, Claude Code, MCP, design review, plugin, Pinpoint">
+  <meta name="author" content="Marc-Antoine Ferland">
+  <meta name="theme-color" content="#ef4444">
+  <link rel="canonical" href="https://pinpoint.maferland.com/">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="any" href="/assets/icon.png">
+  <link rel="apple-touch-icon" href="/assets/icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Pinpoint — visual feedback for AI coding agents">
+  <meta property="og:description" content="Point at what's wrong. Claude fixes it.">
+  <meta property="og:image" content="https://pinpoint.maferland.com/assets/screenshot-light.png">
+  <meta property="og:image:width" content="2880">
+  <meta property="og:image:height" content="1800">
+  <meta property="og:image:alt" content="Pinpoint annotating a GitHub repo page with red pin markers">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pinpoint.maferland.com/">
+  <meta property="og:site_name" content="Pinpoint">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pinpoint — visual feedback for AI coding agents">
+  <meta name="twitter:description" content="Point at what's wrong. Claude fixes it.">
+  <meta name="twitter:image" content="https://pinpoint.maferland.com/assets/screenshot-light.png">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pinpoint",
+    "description": "Visual annotation tool for AI coding agents. Annotate screenshots in a browser; the agent reads structured coordinates and comments.",
+    "url": "https://pinpoint.maferland.com/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://github.com/maferland/pinpoint/blob/main/LICENSE",
+    "codeRepository": "https://github.com/maferland/pinpoint",
+    "author": { "@type": "Person", "name": "Marc-Antoine Ferland", "url": "https://maferland.com" }
+  }
+  </script>
+
+  <script>
+    // Apply theme before paint to avoid flash. localStorage overrides system pref.
+    (function () {
+      var saved = localStorage.getItem('pinpoint-theme');
+      var light = saved === 'light' || (saved == null && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+      if (light) document.documentElement.classList.add('theme-light');
+    })();
+  </script>
+
+  <style>
+    :root {
+      --bg: #0b0c0e;
+      --surface: #14161a;
+      --border: #23262d;
+      --text: #e7e9ee;
+      --muted: #8a8f99;
+      --primary: #ef4444;
+      --primary-hover: #dc2626;
+      --code-bg: #0f1115;
+      --tk-cmd: #7dd3fc;
+      --tk-flag: #c4b5fd;
+      --tk-str: #fde68a;
+      --tk-num: #fdba74;
+      --tk-key: #93c5fd;
+      --max: 920px;
+    }
+    /* Light palette applied via .theme-light on <html>.
+       Set by inline script at the top of <body> based on localStorage
+       (manual override) or prefers-color-scheme: light (system default). */
+    :root.theme-light {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #111317;
+      --muted: #5b6271;
+      --primary: #ef4444;
+      --primary-hover: #dc2626;
+      --code-bg: #f1f3f6;
+      --tk-cmd: #0369a1;
+      --tk-flag: #6d28d9;
+      --tk-str: #b45309;
+      --tk-num: #c2410c;
+      --tk-key: #1d4ed8;
+    }
+
+    /* Code highlighting tokens (hand-marked, no runtime highlighter) */
+    .tk-cmd { color: var(--tk-cmd); }
+    .tk-flag { color: var(--tk-flag); }
+    .tk-str { color: var(--tk-str); }
+    .tk-var { color: var(--muted); font-style: italic; }
+    .tk-op { color: var(--muted); }
+    .tk-key { color: var(--tk-key); }
+    .tk-num { color: var(--tk-num); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--text); }
+    a:hover { color: var(--primary); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace; }
+
+    /* Animations */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero h1, .hero .pitch, .hero .install, .hero-media {
+      animation: fade-up .55s ease both;
+    }
+    .hero .pitch   { animation-delay: .08s; }
+    .hero .install { animation-delay: .16s; }
+    .hero-media    { animation-delay: .24s; }
+
+    .card { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: color-mix(in srgb, var(--muted) 40%, var(--border));
+      box-shadow: 0 6px 20px rgba(0,0,0,.04);
+    }
+
+    /* Section reveal — IO marks each <section> .in-view as it scrolls past.
+       Hero is opted out so it shows immediately under the entrance animation
+       already on its children. */
+    section:not(.hero) { opacity: 0; transform: translateY(12px); transition: opacity .55s ease, transform .55s ease; }
+    section.in-view { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .hero h1, .hero .pitch, .hero .install, .hero-media,
+      .card, .brand-mark, section { animation: none !important; transition: none !important; transform: none !important; opacity: 1 !important; }
+      .card:hover { transform: none; }
+    }
+
+    /* Layout */
+    .container { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+    header.site {
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(6px);
+    }
+    header.site .row {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-mark {
+      width: 22px; height: 22px;
+      background: var(--primary);
+      border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: white;
+      box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 4px 12px rgba(239,68,68,.18);
+      transition: transform .25s ease, box-shadow .25s ease;
+    }
+    .brand-mark svg { width: 13px; height: 13px; display: block; }
+    .brand:hover .brand-mark {
+      transform: scale(1.06);
+      box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 6px 18px rgba(239,68,68,.32);
+    }
+    .brand strong { font-weight: 600; letter-spacing: -0.01em; }
+    .nav { display: flex; align-items: center; gap: 20px; }
+    .nav a { font-size: 14px; color: var(--muted); text-decoration: none; }
+    .nav a:hover { color: var(--text); }
+
+    /* Theme toggle */
+    .theme-toggle {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+    .theme-toggle svg { width: 14px; height: 14px; }
+    .theme-toggle .moon { display: none; }
+    :root.theme-light .theme-toggle .sun { display: none; }
+    :root.theme-light .theme-toggle .moon { display: block; }
+
+    /* Image swap (dark image hidden in light mode and vice-versa).
+       Selectors are scoped under .hero-media to beat the .hero-media img
+       base rule's specificity (1 class + 1 element). */
+    .hero-media .img-light { display: none; }
+    .hero-media .img-dark { display: block; }
+    :root.theme-light .hero-media .img-light { display: block; }
+    :root.theme-light .hero-media .img-dark { display: none; }
+
+    /* Hero */
+    .hero { padding: 72px 0 32px; text-align: center; }
+    .hero h1 {
+      font-size: 56px; line-height: 1.05; letter-spacing: -0.025em;
+      margin: 0 0 16px;
+      font-weight: 700;
+    }
+    .hero .pitch {
+      font-size: 20px; color: var(--muted); max-width: 600px; margin: 0 auto 32px;
+    }
+    /* Tabbed install widget */
+    .install {
+      display: inline-flex; flex-direction: column;
+      max-width: 560px; width: 100%;
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; text-align: left;
+      font-family: ui-monospace, monospace;
+    }
+    .install-tabs {
+      display: flex; gap: 4px;
+      padding: 6px 6px 0;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--code-bg) 70%, var(--surface));
+    }
+    .install-tab {
+      background: transparent; border: none; color: var(--muted);
+      font: inherit; font-size: 12px; font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.15s;
+    }
+    .install-tab:hover { color: var(--text); }
+    .install-tab[aria-selected="true"] {
+      color: var(--text);
+      background: var(--code-bg);
+    }
+    .install-tab[aria-selected="true"]::after {
+      content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px;
+      height: 2px; background: var(--primary); border-radius: 2px;
+    }
+    .install-body { position: relative; padding: 14px 18px; }
+    .install-pane { display: none; font-size: 14px; line-height: 1.6; }
+    .install-pane.active { display: block; }
+    .install-pane pre, .install-pane code {
+      background: transparent; border: 0; padding: 0; margin: 0;
+      color: var(--text);
+      font-family: inherit; font-size: 14px;
+      white-space: pre; overflow-x: auto; display: block;
+    }
+    .install .copy {
+      position: absolute; top: 8px; right: 8px;
+      background: transparent; border: none; color: var(--muted);
+      width: 28px; height: 28px; border-radius: 4px;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .copy {
+      background: transparent; border: none; color: var(--muted);
+      padding: 4px; border-radius: 4px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px;
+    }
+    .copy:hover { color: var(--text); background: rgba(127,127,127,0.1); }
+    .copy.copied { color: var(--primary); }
+    .copy svg { width: 16px; height: 16px; display: block; }
+    .copy .check { display: none; }
+    .copy.copied .clip { display: none; }
+    .copy.copied .check { display: block; }
+    .inline-icon { width: 14px; height: 14px; vertical-align: -2px; display: inline; }
+
+    /* Per-pre copy buttons */
+    .cb { position: relative; }
+    .cb .pre-copy {
+      position: absolute; top: 8px; right: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 4px; border-radius: 4px;
+      color: var(--muted); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      opacity: 0.4; transition: opacity 0.15s, color 0.15s;
+    }
+    .cb:hover .pre-copy, .cb .pre-copy:focus-visible { opacity: 1; }
+    .cb .pre-copy:hover { color: var(--text); }
+    .cb .pre-copy.copied { color: var(--primary); opacity: 1; }
+    .cb .pre-copy svg { width: 12px; height: 12px; display: block; }
+    .cb .pre-copy .check { display: none; }
+    .cb .pre-copy.copied .clip { display: none; }
+    .cb .pre-copy.copied .check { display: block; }
+
+    /* Hero media */
+    .hero-media {
+      margin: 48px auto 0; max-width: var(--max);
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .hero-media img { width: 100%; display: block; }
+
+    /* Sections */
+    section { padding: 56px 0; border-top: 1px solid var(--border); }
+    section h2 {
+      font-size: 28px; letter-spacing: -0.02em; margin: 0 0 12px;
+      font-weight: 600;
+    }
+    section .lede { color: var(--muted); margin: 0 0 32px; font-size: 17px; }
+    .grid-2 { display: grid; gap: 24px; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 24px;
+      display: flex; flex-direction: column;
+    }
+    .card h3 { font-size: 16px; margin: 0 0 6px; font-weight: 600; }
+    .card p { color: var(--muted); margin: 0 0 12px; font-size: 14px; line-height: 1.55; flex: 1; }
+    .card pre {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; margin: 0; font-size: 13px; overflow-x: auto;
+    }
+
+    /* Steps */
+    .steps { display: grid; gap: 16px; counter-reset: step; }
+    .step {
+      display: grid; grid-template-columns: 36px 1fr; gap: 16px; align-items: start;
+    }
+    .step .n {
+      counter-increment: step;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 50%;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; color: var(--muted);
+    }
+    .step .n::before { content: counter(step); }
+    .step strong { display: block; margin-bottom: 4px; font-weight: 600; }
+    .step span { color: var(--muted); font-size: 15px; }
+
+    /* JSON sample */
+    pre.sample {
+      background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px 18px; overflow-x: auto; font-size: 13px; line-height: 1.6;
+      margin: 0;
+    }
+
+    /* Footer */
+    footer {
+      padding: 40px 0 64px; border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 13px;
+    }
+    footer .row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* Mobile tweaks */
+    @media (max-width: 600px) {
+      .hero { padding: 48px 0 24px; }
+      .hero h1 { font-size: 40px; }
+      .hero .pitch { font-size: 17px; }
+      .install { font-size: 12px; padding: 10px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site">
+  <div class="container row">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2c-4.4 0-8 3.6-8 8 0 5.6 8 12 8 12s8-6.4 8-12c0-4.4-3.6-8-8-8z"/>
+          <circle cx="12" cy="10" r="2.5"/>
+        </svg>
+      </span>
+      <strong>Pinpoint</strong>
+    </a>
+    <nav class="nav">
+      <a href="#how">How it works</a>
+      <a href="#use">Use with</a>
+      <a href="#sharing">Handoff</a>
+      <a href="https://github.com/maferland/pinpoint">GitHub</a>
+      <button class="theme-toggle" type="button" aria-label="Toggle color scheme" title="Toggle color scheme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <h1>Visual feedback for AI coding agents.</h1>
+    <p class="pitch">Annotate any screenshot in your browser. Click to drop pins, drag to draw boxes, type comments. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix.</p>
+
+    <div class="install" role="group" aria-label="Install">
+      <div class="install-tabs" role="tablist">
+        <button class="install-tab" role="tab" aria-selected="true" data-pane="terminal">Terminal</button>
+        <button class="install-tab" role="tab" aria-selected="false" data-pane="claude">Claude Code</button>
+      </div>
+      <div class="install-body">
+        <div class="install-pane active" data-pane="terminal">
+          <pre><span class="tk-cmd">curl</span> <span class="tk-flag">-fsSL</span> https://pinpoint.maferland.com/install.sh <span class="tk-op">|</span> <span class="tk-cmd">bash</span></pre>
+        </div>
+        <div class="install-pane" data-pane="claude">
+          <pre><span class="tk-cmd">/plugin</span> marketplace add maferland/pinpoint
+<span class="tk-cmd">/plugin</span> install pinpoint@pinpoint-marketplace
+<span class="tk-cmd">/pinpoint:install</span></pre>
+        </div>
+        <button class="copy" type="button" aria-label="Copy install command" title="Copy">
+          <svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- TODO: swap in the loop GIF when recorded. -->
+    <div class="hero-media">
+      <img class="img-light" src="/assets/screenshot-light.png" alt="Pinpoint annotation UI">
+      <img class="img-dark" src="/assets/screenshot-dark.png" alt="Pinpoint annotation UI">
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="container">
+    <h2>How it works</h2>
+    <p class="lede">Your agent drives. You point at what's wrong.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <strong>The agent takes a screenshot</strong>
+          <span>Of whatever it's building. A page in your dev server, a Storybook story, an iOS simulator — anywhere with pixels.</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <strong>You pin what's wrong</strong>
+          <span>Click to drop a pin, drag to draw a region, type your comment. Hit Send when you're done.</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n"></div>
+        <div>
+          <strong>The agent fixes what you pointed at</strong>
+          <span>Each pin becomes a task. The agent works through them and asks for another round of pins when it's ready.</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:40px; font-size:14px; font-weight:600; color:var(--muted);">What Pinpoint sends back</h3>
+<pre class="sample">{
+  <span class="tk-key">"annotations"</span>: [
+    {
+      <span class="tk-key">"number"</span>: <span class="tk-num">1</span>,
+      <span class="tk-key">"image"</span>: <span class="tk-str">"/tmp/screenshot.png"</span>,
+      <span class="tk-key">"box"</span>: { <span class="tk-key">"x"</span>: <span class="tk-num">10.2</span>, <span class="tk-key">"y"</span>: <span class="tk-num">5.3</span>, <span class="tk-key">"width"</span>: <span class="tk-num">35.0</span>, <span class="tk-key">"height"</span>: <span class="tk-num">12.5</span> },
+      <span class="tk-key">"comment"</span>: <span class="tk-str">"Button text is truncated on mobile"</span>
+    }
+  ]
+}</pre>
+  </div>
+</section>
+
+<section id="use">
+  <div class="container">
+    <h2>Use it with your agent</h2>
+    <p class="lede">Pinpoint speaks two protocols. Pick whichever fits where you already work.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Claude Code</h3>
+        <p>Slash command, no setup beyond install.</p>
+        <div class="cb"><pre><span class="tk-cmd">/pinpoint:review</span> /tmp/screenshot.png</pre></div>
+      </div>
+      <div class="card">
+        <h3>Claude Code via MCP</h3>
+        <p>The install registers an MCP server so Claude can drive Pinpoint inline — no slash command required.</p>
+      </div>
+      <div class="card">
+        <h3>Direct CLI</h3>
+        <p>Spawns the server, opens the browser, blocks until you hit Send, prints JSON to stdout. Pipe it anywhere.</p>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> review screenshot.png <span class="tk-op">\</span>
+  <span class="tk-flag">--context</span> <span class="tk-str">"Login page after auth changes"</span></pre></div>
+      </div>
+      <div class="card">
+        <h3>Try the loop in 10 seconds</h3>
+        <p>After install, no screenshot needed. Run from Claude Code (or your terminal) and a sample session opens in your browser with starter pins.</p>
+        <div class="cb"><pre><span class="tk-cmd">/pinpoint:demo</span></pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sharing">
+  <div class="container">
+    <h2>Hand it off. Get it back.</h2>
+    <p class="lede">A review packages into a <code>.pinpoint.zip</code>. Send it to anyone with Pinpoint installed — designer, PM, teammate. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Export</h3>
+        <p>Click the <svg class="inline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> button in the toolbar, or from the command line:</p>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> export <span class="tk-var">&lt;reviewId&gt;</span></pre></div>
+      </div>
+      <div class="card">
+        <h3>Open someone else's session</h3>
+        <p>Behaves like <code>pinpoint review</code>. Same browser UI, blocks until you hit Send, prints JSON.</p>
+        <div class="cb"><pre><span class="tk-cmd">pinpoint</span> open session.pinpoint.zip</pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container row">
+    <span>Pinpoint is <a href="https://github.com/maferland/pinpoint/blob/main/LICENSE">MIT licensed</a>. Built by <a href="https://maferland.com">Marc-Antoine Ferland</a>.</span>
+    <span>
+      <a href="https://github.com/maferland/pinpoint">GitHub</a> ·
+      <a href="https://github.com/maferland/pinpoint/blob/main/CHANGELOG.md">Changelog</a> ·
+      <a href="https://github.com/maferland/pinpoint/issues">Issues</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  document.querySelector('.theme-toggle').addEventListener('click', () => {
+    const isLight = document.documentElement.classList.toggle('theme-light');
+    localStorage.setItem('pinpoint-theme', isLight ? 'light' : 'dark');
+  });
+
+  // Tabbed install widget.
+  const installWidget = document.querySelector('.install');
+  if (installWidget) {
+    const tabs = installWidget.querySelectorAll('.install-tab');
+    const panes = installWidget.querySelectorAll('.install-pane');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.pane;
+        tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.pane === target)));
+        panes.forEach((p) => p.classList.toggle('active', p.dataset.pane === target));
+      });
+    });
+    installWidget.querySelector('.copy').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const active = installWidget.querySelector('.install-pane.active pre');
+      try {
+        await navigator.clipboard.writeText(active.textContent.trim());
+        btn.classList.add('copied');
+        btn.setAttribute('title', 'Copied');
+        setTimeout(() => { btn.classList.remove('copied'); btn.setAttribute('title', 'Copy'); }, 1500);
+      } catch {
+        btn.setAttribute('title', 'Press ⌘C');
+      }
+    });
+  }
+
+  // Inject copy buttons into every .cb wrapper.
+  const clipSvg = `<svg class="clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+  const checkSvg = `<svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+  document.querySelectorAll('.cb').forEach((cb) => {
+    const pre = cb.querySelector('pre');
+    if (!pre) return;
+    const btn = document.createElement('button');
+    btn.className = 'pre-copy';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Copy');
+    btn.innerHTML = clipSvg + checkSvg;
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(pre.textContent.trim());
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 1500);
+      } catch {
+        btn.setAttribute('title', 'Press ⌘C');
+      }
+    });
+    cb.appendChild(btn);
+  });
+
+  // Reveal sections as they scroll into view. Sections already visible on
+  // initial paint (e.g. the hero) are revealed immediately so there's no
+  // flash of empty content above the fold.
+  const reveal = (el) => { el.classList.add('in-view'); };
+  const isOnscreen = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight && r.bottom > 0;
+  };
+  const sections = [...document.querySelectorAll('section')];
+  sections.forEach((s) => { if (isOnscreen(s)) reveal(s); });
+
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { reveal(e.target); io.unobserve(e.target); }
+    }
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.05 });
+  sections.forEach((s) => { if (!s.classList.contains('in-view')) io.observe(s); });
+</script>
+
+<!-- Vercel Web Analytics (vanilla; enable Web Analytics on the project for the endpoint to receive events) -->
+<script defer src="/_vercel/insights/script.js"></script>
+
+</body>
+</html>
