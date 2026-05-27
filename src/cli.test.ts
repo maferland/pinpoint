@@ -24,10 +24,6 @@ const TEST_PNG = Buffer.from([
   0x08, 0x02, 0x00, 0x00, 0x00,
 ]);
 
-function pickPort(): number {
-  return 50000 + Math.floor(Math.random() * 10000);
-}
-
 function spawnCli(args: string[]) {
   const proc = spawn("node", [CLI_PATH, ...args], {
     env: { ...process.env, PINPOINT_TEST_NO_OPEN: "1" },
@@ -47,11 +43,11 @@ function spawnCli(args: string[]) {
   };
 }
 
-async function waitForReviewId(getStderr: () => string, timeoutMs = 5000): Promise<string> {
+async function waitForReady(getStderr: () => string, timeoutMs = 5000): Promise<{ port: number; reviewId: string }> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const m = getStderr().match(/\/review\/([a-zA-Z0-9_-]+)/);
-    if (m) return m[1];
+    const m = getStderr().match(/http:\/\/localhost:(\d+)\/review\/([a-zA-Z0-9_-]+)/);
+    if (m) return { port: parseInt(m[1], 10), reviewId: m[2] };
     await new Promise((r) => setTimeout(r, 25));
   }
   throw new Error(`cli not ready in ${timeoutMs}ms: ${getStderr()}`);
@@ -73,9 +69,8 @@ describe("pinpoint export/open cli", () => {
 
   it("round-trips a review through export then open", async () => {
     // 1. Create a review via `review`, attach annotations, finalize.
-    const port = pickPort();
-    const reviewCli = spawnCli(["review", imagePath, "--context", "roundtrip", "--port", String(port)]);
-    const reviewId = await waitForReviewId(() => reviewCli.stderr);
+    const reviewCli = spawnCli(["review", imagePath, "--context", "roundtrip"]);
+    const { port, reviewId } = await waitForReady(() => reviewCli.stderr);
 
     const annPut = await fetch(`http://localhost:${port}/api/review/${reviewId}/annotations`, {
       method: "PUT",
@@ -105,9 +100,8 @@ describe("pinpoint export/open cli", () => {
 
     // 3. Re-open the bundle (reviewer perspective, fresh review), add a new
     //    comment, finalize. Verify both annotations come through.
-    const openPort = pickPort();
-    const openCli = spawnCli(["open", bundlePath, "--mode", "new", "--port", String(openPort)]);
-    const openedId = await waitForReviewId(() => openCli.stderr);
+    const openCli = spawnCli(["open", bundlePath, "--mode", "new"]);
+    const { port: openPort, reviewId: openedId } = await waitForReady(() => openCli.stderr);
     expect(openedId).not.toBe(reviewId);
 
     const review = await (await fetch(`http://localhost:${openPort}/api/review/${openedId}`)).json() as {
@@ -133,9 +127,8 @@ describe("pinpoint export/open cli", () => {
 
   it("--mode append merges bundle annotations into an existing local review", async () => {
     // Seed a local review with one annotation.
-    const port = pickPort();
-    const seedCli = spawnCli(["review", imagePath, "--port", String(port)]);
-    const reviewId = await waitForReviewId(() => seedCli.stderr);
+    const seedCli = spawnCli(["review", imagePath]);
+    const { port, reviewId } = await waitForReady(() => seedCli.stderr);
     await fetch(`http://localhost:${port}/api/review/${reviewId}/annotations`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -168,9 +161,8 @@ describe("pinpoint export/open cli", () => {
 
     // Open with --mode append. Existing local review has 1 annotation;
     // bundle now has 2. After append we expect 3 (1 local + 2 incoming).
-    const openPort = pickPort();
-    const openCli = spawnCli(["open", bundlePath, "--mode", "append", "--port", String(openPort)]);
-    const openedId = await waitForReviewId(() => openCli.stderr);
+    const openCli = spawnCli(["open", bundlePath, "--mode", "append"]);
+    const { port: openPort, reviewId: openedId } = await waitForReady(() => openCli.stderr);
     expect(openedId).toBe(reviewId);
 
     const got = await (await fetch(`http://localhost:${openPort}/api/review/${openedId}`)).json() as {
@@ -189,9 +181,8 @@ describe("pinpoint export/open cli", () => {
   }, 20000);
 
   it("--mode replace overwrites a colliding local review", async () => {
-    const port = pickPort();
-    const seedCli = spawnCli(["review", imagePath, "--port", String(port)]);
-    const reviewId = await waitForReviewId(() => seedCli.stderr);
+    const seedCli = spawnCli(["review", imagePath]);
+    const { port, reviewId } = await waitForReady(() => seedCli.stderr);
     await fetch(`http://localhost:${port}/api/review/${reviewId}/annotations`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -208,9 +199,8 @@ describe("pinpoint export/open cli", () => {
 
     // The bundle (exported just now) carries the "to be replaced" annotation.
     // Replace mode should leave the review with exactly the bundle's annotations.
-    const openPort = pickPort();
-    const openCli = spawnCli(["open", bundlePath, "--mode", "replace", "--port", String(openPort)]);
-    const openedId = await waitForReviewId(() => openCli.stderr);
+    const openCli = spawnCli(["open", bundlePath, "--mode", "replace"]);
+    const { port: openPort, reviewId: openedId } = await waitForReady(() => openCli.stderr);
     expect(openedId).toBe(reviewId);
 
     const got = await (await fetch(`http://localhost:${openPort}/api/review/${openedId}`)).json() as {
@@ -233,9 +223,8 @@ describe("pinpoint export/open cli", () => {
   });
 
   it("`pinpoint demo` opens the bundled demo from any cwd", async () => {
-    const port = pickPort();
-    const cli = spawnCli(["demo", "--port", String(port)]);
-    const reviewId = await waitForReviewId(() => cli.stderr);
+    const cli = spawnCli(["demo"]);
+    const { port, reviewId } = await waitForReady(() => cli.stderr);
 
     const review = await (await fetch(`http://localhost:${port}/api/review/${reviewId}`)).json() as {
       annotations: Array<{ comment: string }>;
@@ -264,9 +253,8 @@ describe("pinpoint review cli", () => {
   });
 
   it("starts a server, accepts annotations, finalizes, prints JSON, exits fast", async () => {
-    const port = pickPort();
-    const cli = spawnCli(["review", imagePath, "--context", "smoke", "--port", String(port)]);
-    const reviewId = await waitForReviewId(() => cli.stderr);
+    const cli = spawnCli(["review", imagePath, "--context", "smoke"]);
+    const { port, reviewId } = await waitForReady(() => cli.stderr);
 
     const annRes = await fetch(`http://localhost:${port}/api/review/${reviewId}/annotations`, {
       method: "PUT",
