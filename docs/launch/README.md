@@ -46,7 +46,7 @@ After DNS resolves:
 
 1. **Record the loop GIF.** This is the biggest single missing piece. Aim for 10-12 seconds, ~3MB. Suggested capture:
    - Take a screenshot of a real UI bug (Storybook story with a misaligned button works well)
-   - Run `/pinpoint-review` (Claude Code) or `pinpoint review <file>`
+   - Run `/pinpoint:review` (Claude Code) or `pinpoint review <file>`
    - Drop one pin, type a comment, hit Send
    - Cut to Claude applying the fix
    - Cut to the after screenshot

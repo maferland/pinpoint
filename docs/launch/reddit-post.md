@@ -10,7 +10,7 @@ Two versions: one for r/ClaudeAI (Claude-specific audience), one for r/ChatGPTPr
 
 I've been working on a tool called Pinpoint for a few months. The motivation was simple: when Claude generates UI code and something's off, describing it in text is slow and lossy. "The button on the right is misaligned" is fine. "The CTA's padding has 4px more on the right than the left, and the heading inside it sits 2px below the baseline of the body text" is what you actually need to say, and nobody types that.
 
-Pinpoint replaces that with a slash command. You run `/pinpoint-review /tmp/screenshot.png`, the browser opens, you click where the problem is, type a comment, hit Send. Claude gets the coordinates as percentages plus your comment, and acts on each one as a discrete task.
+Pinpoint replaces that with a slash command. You run `/pinpoint:review /tmp/screenshot.png`, the browser opens, you click where the problem is, type a comment, hit Send. Claude gets the coordinates as percentages plus your comment, and acts on each one as a discrete task.
 
 What I just shipped in v0.6.0 is portable sessions. A review packages into a `.pinpoint.zip` (manifest plus raw image bytes). You can hand it to a designer or PM, they open it locally (no Claude account needed), add their pins, send it back. Then you import and Claude sees both sets.
 

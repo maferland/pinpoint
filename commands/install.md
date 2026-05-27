@@ -10,4 +10,4 @@ You've installed the plugin (slash commands + skill). This finishes the job by b
 
 !`curl -fsSL https://raw.githubusercontent.com/maferland/pinpoint/main/install.sh | bash`
 
-After this completes, restart Claude Code so the new MCP server and updated PATH are picked up. Then run `pinpoint demo` in a terminal to feel the loop, or `/pinpoint-review /path/to/screenshot.png` on a real screenshot.
+After this completes, restart Claude Code so the new MCP server and updated PATH are picked up. Then run `pinpoint demo` in a terminal to feel the loop, or `/pinpoint:review /path/to/screenshot.png` on a real screenshot.

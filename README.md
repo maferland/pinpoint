@@ -17,7 +17,7 @@
 <!-- TODO: replace screenshot above with a short GIF of the full loop:
      screenshot → pin → comment → hit Send → Claude applies the fix. -->
 
-You make a UI change. Take a screenshot. Run `/pinpoint-review screenshot.png`. The browser opens. You click on what's wrong, type a sentence, hit Send. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix. Round-trip is usually under a minute.
+You make a UI change. Take a screenshot. Run `/pinpoint:review screenshot.png`. The browser opens. You click on what's wrong, type a sentence, hit Send. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix. Round-trip is usually under a minute.
 
 Pinpoint works with any visual surface: web pages, iOS simulators, macOS apps, Storybook, design mockups. No target app modification needed.
 
@@ -73,7 +73,7 @@ Pinpoint speaks two protocols. Pick the one your agent supports.
 ### Claude Code: slash command
 
 ```
-/pinpoint-review /tmp/screenshot.png
+/pinpoint:review /tmp/screenshot.png
 ```
 
 The browser opens, you annotate, hit **Send** in the toolbar, the structured JSON lands in the conversation.
