@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pinpoint — visual feedback for AI coding agents</title>
-  <meta name="description" content="Annotate any screenshot in your browser. Click to pin, drag to box, type comments. The agent picks up structured coordinates and fixes what you pointed at.">
+  <meta name="description" content="Annotate screenshots in your browser and feed structured visual feedback back to Claude Code, Cursor, or any MCP-capable agent. Open-source.">
+  <meta name="keywords" content="AI coding agent, visual feedback, screenshot annotation, Claude Code, MCP, design review, plugin, Pinpoint">
+  <meta name="author" content="Marc-Antoine Ferland">
+  <meta name="theme-color" content="#ef4444">
+  <link rel="canonical" href="https://pinpoint.maferland.com/">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="icon" type="image/png" sizes="any" href="/assets/icon.png">
   <link rel="apple-touch-icon" href="/assets/icon.png">
@@ -12,10 +16,34 @@
   <!-- Open Graph -->
   <meta property="og:title" content="Pinpoint — visual feedback for AI coding agents">
   <meta property="og:description" content="Point at what's wrong. Claude fixes it.">
-  <meta property="og:image" content="/assets/screenshot-light.png">
+  <meta property="og:image" content="https://pinpoint.maferland.com/assets/screenshot-light.png">
+  <meta property="og:image:width" content="2880">
+  <meta property="og:image:height" content="1800">
+  <meta property="og:image:alt" content="Pinpoint annotating a GitHub repo page with red pin markers">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://pinpoint.maferland.com">
+  <meta property="og:url" content="https://pinpoint.maferland.com/">
+  <meta property="og:site_name" content="Pinpoint">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pinpoint — visual feedback for AI coding agents">
+  <meta name="twitter:description" content="Point at what's wrong. Claude fixes it.">
+  <meta name="twitter:image" content="https://pinpoint.maferland.com/assets/screenshot-light.png">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Pinpoint",
+    "description": "Visual annotation tool for AI coding agents. Annotate screenshots in a browser; the agent reads structured coordinates and comments.",
+    "url": "https://pinpoint.maferland.com/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://github.com/maferland/pinpoint/blob/main/LICENSE",
+    "codeRepository": "https://github.com/maferland/pinpoint",
+    "author": { "@type": "Person", "name": "Marc-Antoine Ferland", "url": "https://maferland.com" }
+  }
+  </script>
 
   <script>
     // Apply theme before paint to avoid flash. localStorage overrides system pref.
