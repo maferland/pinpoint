@@ -1,14 +1,14 @@
 ## [v0.8.2]
 
-- **Stray pins don't pad your annotation count anymore.** Drop a pin, type nothing, click away. The pin used to stick around as a numbered marker with no note. Closing the popover with an empty (or whitespace-only) comment now removes it.
+- **Empty pins clean up after themselves.** Closing a popover with no comment now removes the pin instead of leaving a numbered marker.
 
 ## [v0.8.1]
 
-- **Commit messages and release notes can mention `pinpoint review &` again.** v0.8.0 matched the pattern anywhere on a Bash line, including inside quoted `--notes` and commit-message arguments, so perfectly fine commands got blocked. The matcher now masks quoted spans first.
+- **Commit messages can mention `pinpoint review &` again.** v0.8.0's matcher tripped on the pattern inside quoted strings like `--notes` flags.
 
 ## [v0.8.0]
 
-- **Your pins don't vanish when an agent backgrounds the review.** Some agents spawn `pinpoint review` with `&`, `nohup`, or `disown`. When you click Done, the JSON output goes nowhere and the agent has no idea what you wrote. Pinpoint now blocks those invocations and points the agent at a foreground call instead.
+- **Your pins don't vanish when an agent backgrounds the review.** Detached invocations (`&`, `nohup`, `disown`) used to drop the annotation JSON; Pinpoint blocks them upfront now.
 
 ## [v0.7.0]
 
