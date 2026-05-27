@@ -70,6 +70,7 @@
     .tk-num { color: var(--tk-num); }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; scroll-padding-top: 72px; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -101,9 +102,16 @@
       box-shadow: 0 6px 20px rgba(0,0,0,.04);
     }
 
+    /* Section reveal — IO marks each <section> .in-view as it scrolls past.
+       Hero is opted out so it shows immediately under the entrance animation
+       already on its children. */
+    section:not(.hero) { opacity: 0; transform: translateY(12px); transition: opacity .55s ease, transform .55s ease; }
+    section.in-view { opacity: 1; transform: translateY(0); }
+
     @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
       .hero h1, .hero .pitch, .hero .install, .hero-media,
-      .card, .brand-mark { animation: none !important; transition: none !important; }
+      .card, .brand-mark, section { animation: none !important; transition: none !important; transform: none !important; opacity: 1 !important; }
       .card:hover { transform: none; }
     }
 
@@ -250,7 +258,7 @@
       font-size: 28px; letter-spacing: -0.02em; margin: 0 0 12px;
       font-weight: 600;
     }
-    section .lede { color: var(--muted); margin: 0 0 32px; max-width: 640px; font-size: 17px; }
+    section .lede { color: var(--muted); margin: 0 0 32px; font-size: 17px; }
     .grid-2 { display: grid; gap: 24px; grid-template-columns: 1fr 1fr; }
     @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
     .card {
@@ -379,35 +387,28 @@
 <section id="how">
   <div class="container">
     <h2>How it works</h2>
-    <p class="lede">A slash command opens your browser. You annotate. The agent picks up where it left off, now with structured data.</p>
+    <p class="lede">Your agent drives. You point at what's wrong.</p>
 
     <div class="steps">
       <div class="step">
         <div class="n"></div>
         <div>
-          <strong>You take a screenshot</strong>
-          <span>Of whatever you're working on. A page in your dev server, a Storybook story, an iOS simulator, a Figma export.</span>
+          <strong>The agent takes a screenshot</strong>
+          <span>Of whatever it's building. A page in your dev server, a Storybook story, an iOS simulator — anywhere with pixels.</span>
         </div>
       </div>
       <div class="step">
         <div class="n"></div>
         <div>
-          <strong>Run <code>/pinpoint:review screenshot.png</code></strong>
-          <span>The browser opens. You click to drop pins, drag to draw boxes, type comments. ⌘Enter saves each one.</span>
+          <strong>You pin what's wrong</strong>
+          <span>Click to drop a pin, drag to draw a region, type your comment. Hit Send when you're done.</span>
         </div>
       </div>
       <div class="step">
         <div class="n"></div>
         <div>
-          <strong>Hit Send</strong>
-          <span>The agent gets structured JSON back. Coordinates as percentages (resolution-independent), comments as the source of truth.</span>
-        </div>
-      </div>
-      <div class="step">
-        <div class="n"></div>
-        <div>
-          <strong>The agent works each annotation as a discrete fix</strong>
-          <span>One task per pin. Round-trip is usually under a minute.</span>
+          <strong>The agent fixes what you pointed at</strong>
+          <span>Each pin becomes a task. The agent works through them and asks for another round of pins when it's ready.</span>
         </div>
       </div>
     </div>
@@ -528,6 +529,24 @@
     });
     cb.appendChild(btn);
   });
+
+  // Reveal sections as they scroll into view. Sections already visible on
+  // initial paint (e.g. the hero) are revealed immediately so there's no
+  // flash of empty content above the fold.
+  const reveal = (el) => { el.classList.add('in-view'); };
+  const isOnscreen = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight && r.bottom > 0;
+  };
+  const sections = [...document.querySelectorAll('section')];
+  sections.forEach((s) => { if (isOnscreen(s)) reveal(s); });
+
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { reveal(e.target); io.unobserve(e.target); }
+    }
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.05 });
+  sections.forEach((s) => { if (!s.classList.contains('in-view')) io.observe(s); });
 </script>
 
 </body>
