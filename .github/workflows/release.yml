@@ -35,7 +35,9 @@ jobs:
           fi
           prev="$(git describe --abbrev=0 --tags "$tag"^ 2>/dev/null || true)"
           if [ -n "$prev" ]; then
-            printf '\n**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
+            # awk leaves a trailing blank line from the inter-section spacing;
+            # printf without a leading newline keeps the separator at one blank.
+            printf '**Full Changelog**: https://github.com/%s/compare/%s...%s\n' \
               "${{ github.repository }}" "$prev" "$tag" >> release-notes.md
           fi
 
