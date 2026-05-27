@@ -16,7 +16,7 @@ Pick whichever fits your existing setup.
 
 ```bash
 # from repo root
-cd web
+cd site
 vercel --prod
 # add pinpoint.maferland.com under the Vercel project's Domains tab
 ```
@@ -26,26 +26,26 @@ Vercel will serve `index.html` at `/` and any other file at its path. `install.s
 ### Netlify
 
 ```bash
-cd web
+cd site
 netlify deploy --prod --dir .
 # add the custom domain in Netlify's dashboard
 ```
 
 ### Cloudflare Pages
 
-Upload the `web/` directory via the Pages dashboard. Wrangler also works:
+Upload the `site/` directory via the Pages dashboard. Wrangler also works:
 
 ```bash
-cd web
+cd site
 npx wrangler pages deploy . --project-name pinpoint
 ```
 
 ### GitHub Pages (subdirectory)
 
-Less ideal because GitHub Pages doesn't like subdirectories as roots. If you go this route, push `web/` to a separate branch:
+Less ideal because GitHub Pages doesn't like subdirectories as roots. If you go this route, push `site/` to a separate branch:
 
 ```bash
-git subtree push --prefix web origin gh-pages
+git subtree push --prefix site origin gh-pages
 ```
 
 Then configure Pages to serve from `gh-pages`.
@@ -53,7 +53,7 @@ Then configure Pages to serve from `gh-pages`.
 ## After deploy
 
 1. Update `README.md` install instructions to point at `https://pinpoint.maferland.com/install.sh` instead of the raw GitHub URL.
-2. Update `web/index.html`'s hero-media to swap in the loop GIF (replace `assets/screenshot-light.png`).
+2. Update `site/index.html`'s hero-media to swap in the loop GIF (replace `assets/screenshot-light.png`).
 3. Verify `curl -fsSL https://pinpoint.maferland.com/install.sh` returns the script body (not the index page).
 4. Test the install flow end-to-end from a fresh terminal.
 
