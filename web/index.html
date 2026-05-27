@@ -15,6 +15,15 @@
   <meta property="og:url" content="https://pinpoint.maferland.com">
   <meta name="twitter:card" content="summary_large_image">
 
+  <script>
+    // Apply theme before paint to avoid flash. localStorage overrides system pref.
+    (function () {
+      var saved = localStorage.getItem('pinpoint-theme');
+      var light = saved === 'light' || (saved == null && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+      if (light) document.documentElement.classList.add('theme-light');
+    })();
+  </script>
+
   <style>
     :root {
       --bg: #0b0c0e;
@@ -32,22 +41,23 @@
       --tk-key: #93c5fd;
       --max: 920px;
     }
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #fafafa;
-        --surface: #ffffff;
-        --border: #e5e7eb;
-        --text: #111317;
-        --muted: #5b6271;
-        --primary: #ef4444;
-        --primary-hover: #dc2626;
-        --code-bg: #f1f3f6;
-        --tk-cmd: #0369a1;
-        --tk-flag: #6d28d9;
-        --tk-str: #b45309;
-        --tk-num: #c2410c;
-        --tk-key: #1d4ed8;
-      }
+    /* Light palette applied via .theme-light on <html>.
+       Set by inline script at the top of <body> based on localStorage
+       (manual override) or prefers-color-scheme: light (system default). */
+    :root.theme-light {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #111317;
+      --muted: #5b6271;
+      --primary: #ef4444;
+      --primary-hover: #dc2626;
+      --code-bg: #f1f3f6;
+      --tk-cmd: #0369a1;
+      --tk-flag: #6d28d9;
+      --tk-str: #b45309;
+      --tk-num: #c2410c;
+      --tk-key: #1d4ed8;
     }
 
     /* Code highlighting tokens (hand-marked, no runtime highlighter) */
@@ -90,6 +100,25 @@
     .nav { display: flex; align-items: center; gap: 20px; }
     .nav a { font-size: 14px; color: var(--muted); text-decoration: none; }
     .nav a:hover { color: var(--text); }
+
+    /* Theme toggle */
+    .theme-toggle {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+    .theme-toggle svg { width: 14px; height: 14px; }
+    .theme-toggle .moon { display: none; }
+    :root.theme-light .theme-toggle .sun { display: none; }
+    :root.theme-light .theme-toggle .moon { display: block; }
+
+    /* Image swap (dark image hidden in light mode and vice-versa) */
+    .img-light { display: none; }
+    .img-dark { display: block; }
+    :root.theme-light .img-light { display: block; }
+    :root.theme-light .img-dark { display: none; }
 
     /* Hero */
     .hero { padding: 72px 0 32px; text-align: center; }
@@ -225,6 +254,22 @@
       <a href="#use">Use with</a>
       <a href="#sharing">Handoff</a>
       <a href="https://github.com/maferland/pinpoint">GitHub</a>
+      <button class="theme-toggle" type="button" aria-label="Toggle color scheme" title="Toggle color scheme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
     </nav>
   </div>
 </header>
@@ -249,10 +294,8 @@
 
     <!-- TODO: swap in the loop GIF when recorded. -->
     <div class="hero-media">
-      <picture>
-        <source srcset="/assets/screenshot-dark.png" media="(prefers-color-scheme: dark)">
-        <img src="/assets/screenshot-light.png" alt="Pinpoint annotation UI">
-      </picture>
+      <img class="img-light" src="/assets/screenshot-light.png" alt="Pinpoint annotation UI">
+      <img class="img-dark" src="/assets/screenshot-dark.png" alt="Pinpoint annotation UI">
     </div>
   </div>
 </section>
@@ -319,8 +362,8 @@
         <div class="cb"><pre><span class="tk-cmd">/pinpoint-review</span> /tmp/screenshot.png</pre></div>
       </div>
       <div class="card">
-        <h3>Cursor, Aider, anything with MCP</h3>
-        <p>Pinpoint registers itself as an MCP server during install. Any agent that speaks MCP gets four tools:</p>
+        <h3>Claude Code via MCP</h3>
+        <p>Pinpoint registers as an MCP server during install. The agent gets four tools:</p>
         <pre><span class="tk-cmd">create_review</span>    open browser, return session id
 <span class="tk-cmd">add_image</span>        attach another screenshot
 <span class="tk-cmd">get_annotations</span>  read structured feedback
@@ -343,8 +386,8 @@
 
 <section id="sharing">
   <div class="container">
-    <h2>Send a session to your designer</h2>
-    <p class="lede">A review packages into a <code>.pinpoint.zip</code>. Hand it to anyone with Pinpoint installed. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.</p>
+    <h2>Hand it off. Get it back.</h2>
+    <p class="lede">A review packages into a <code>.pinpoint.zip</code>. Send it to anyone with Pinpoint installed — designer, PM, teammate. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.</p>
 
     <div class="grid-2">
       <div class="card">
@@ -373,6 +416,11 @@
 </footer>
 
 <script>
+  document.querySelector('.theme-toggle').addEventListener('click', () => {
+    const isLight = document.documentElement.classList.toggle('theme-light');
+    localStorage.setItem('pinpoint-theme', isLight ? 'light' : 'dark');
+  });
+
   document.querySelector('.copy').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const cmd = document.getElementById('install-cmd').textContent;
