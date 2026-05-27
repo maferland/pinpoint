@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pinpoint — visual feedback for AI coding agents</title>
   <meta name="description" content="Annotate any screenshot in your browser. Click to pin, drag to box, type comments. The agent picks up structured coordinates and fixes what you pointed at.">
-  <link rel="icon" type="image/png" href="/assets/icon.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="any" href="/assets/icon.png">
+  <link rel="apple-touch-icon" href="/assets/icon.png">
 
   <!-- Open Graph -->
   <meta property="og:title" content="Pinpoint — visual feedback for AI coding agents">
@@ -582,6 +584,9 @@
   }, { rootMargin: '0px 0px -10% 0px', threshold: 0.05 });
   sections.forEach((s) => { if (!s.classList.contains('in-view')) io.observe(s); });
 </script>
+
+<!-- Vercel Web Analytics (vanilla; enable Web Analytics on the project for the endpoint to receive events) -->
+<script defer src="/_vercel/insights/script.js"></script>
 
 </body>
 </html>
