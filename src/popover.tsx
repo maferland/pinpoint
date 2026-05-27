@@ -18,15 +18,18 @@ interface PopoverProps {
 function useFlushSave(
   draft: string,
   committed: string,
-  onUpdate: (updates: Partial<PinpointAnnotation>) => void
+  onUpdate: (updates: Partial<PinpointAnnotation>) => void,
+  onDelete: () => void
 ) {
   const draftRef = useRef(draft);
   const committedRef = useRef(committed);
   const onUpdateRef = useRef(onUpdate);
+  const onDeleteRef = useRef(onDelete);
   const cancelRef = useRef(false);
   useEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { committedRef.current = committed; }, [committed]);
   useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
+  useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
 
   const flush = useCallback(() => {
     if (cancelRef.current) return;
@@ -39,7 +42,12 @@ function useFlushSave(
   const cancel = useCallback(() => { cancelRef.current = true; }, []);
 
   // Save on unmount — covers click-outside, pin switch, image switch.
-  useEffect(() => () => flush(), [flush]);
+  // A pin with no comment carries no information, so drop it on close.
+  useEffect(() => () => {
+    flush();
+    const finalComment = cancelRef.current ? committedRef.current : draftRef.current;
+    if (finalComment.trim() === "") onDeleteRef.current();
+  }, [flush]);
 
   return { flush, cancel };
 }
@@ -48,7 +56,7 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
   const [comment, setComment] = useState(annotation.comment);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNew = !annotation.comment;
-  const { flush, cancel } = useFlushSave(comment, annotation.comment, onUpdate);
+  const { flush, cancel } = useFlushSave(comment, annotation.comment, onUpdate, onDelete);
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);

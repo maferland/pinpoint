@@ -115,4 +115,100 @@ describe("Popover", () => {
     await user.click(screen.getByText("Delete"));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
+
+  it("deletes a brand-new pin on unmount when no comment was typed", () => {
+    const onDelete = mock(() => {});
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onClose={() => {}}
+      />
+    );
+    unmount();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("deletes a new pin on Escape when nothing was typed", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const onClose = mock(() => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={() => {}}
+        onDelete={onDelete}
+        onClose={onClose}
+      />
+    );
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+    unmount();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("deletes pin when an existing comment is cleared and saved with ⌘Enter", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation({ comment: "old note" })}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onClose={() => {}}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    await user.click(textarea);
+    await user.clear(textarea);
+    await user.keyboard("{Meta>}{Enter}{/Meta}");
+    unmount();
+    expect(onUpdate).toHaveBeenCalledWith({ comment: "" });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a whitespace-only comment as empty and deletes the pin", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={() => {}}
+        onDelete={onDelete}
+        onClose={() => {}}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    await user.click(textarea);
+    await user.keyboard("   ");
+    unmount();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not delete pin when the comment is non-empty on unmount", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation({ comment: "still here" })}
+        x={0} y={0}
+        onUpdate={() => {}}
+        onDelete={onDelete}
+        onClose={() => {}}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    await user.click(textarea);
+    await user.keyboard(" more");
+    unmount();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
 });

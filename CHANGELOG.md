@@ -1,10 +1,14 @@
+## [v0.8.2]
+
+- **Stray pins don't pad your annotation count anymore.** Drop a pin, type nothing, click away — the pin used to stick around as a numbered marker with no note. Closing the popover with an empty (or whitespace-only) comment now removes the pin.
+
 ## [v0.8.1]
 
-- **The detached-review hook no longer trips on quoted strings.** v0.8.0 denied any Bash command that mentioned both `pinpoint review` and `&` anywhere on the line, including `--notes` arguments, commit messages, and release notes about this very hook. The hook now strips quoted spans before matching, so only real shell invocations get blocked.
+- **Commit messages and release notes can mention `pinpoint review &` again.** v0.8.0 matched the pattern anywhere on a Bash line — including inside quoted `--notes` and commit-message arguments — and blocked perfectly fine commands. Quoted spans are now masked before matching.
 
 ## [v0.8.0]
 
-- **Backgrounded `pinpoint review` is now blocked.** Spawning the CLI with a trailing `&` used to throw away the annotation JSON. You'd click Done, the agent would never see your pins, and the next message would be it asking what you wanted. A hook now denies detached invocations (also `nohup` and `disown`) and tells the agent to use the foreground or `run_in_background`.
+- **Your pins no longer vanish when an agent backgrounds the review.** Some agents spawn `pinpoint review` with `&`, `nohup`, or `disown` and lose the annotation JSON when you click Done — leaving them oblivious to your feedback. Pinpoint now blocks those invocations and steers the agent to a foreground call so your work makes it back.
 
 ## [v0.7.0]
 
