@@ -4,6 +4,10 @@
 - **New: `/pinpoint:install` and `/pinpoint:demo`.** Install path: `/plugin marketplace add maferland/pinpoint` → `/plugin install pinpoint@pinpoint-marketplace` → `/pinpoint:install`. The demo command opens a bundled sample session so first-run no longer needs your own screenshot.
 - **Landing site at pinpoint.maferland.com.** Single static page hosting `install.sh`, hero, the loop walkthrough, sharing flow, and an in-Claude install snippet. Dark mode toggle in nav; image swaps with the theme.
 
+## [v0.8.3]
+
+- **Fit mode shows the whole phone screenshot again.** On a wide window, tall portrait captures stopped fitting and got cut off at the bottom with a scrollbar; now they scale to your window height, fully visible.
+
 ## [v0.8.2]
 
 - **Empty pins clean up after themselves.** Closing a popover with no comment now removes the pin instead of leaving a numbered marker.
