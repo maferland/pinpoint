@@ -25,6 +25,15 @@ describe("getImageLayout", () => {
       expect(layout.drawW).toBeGreaterThan(200);
     });
 
+    it("fully fits a portrait phone capture in a wide viewport", () => {
+      // Regression: a wide window used to flag a 1206x2622 phone as a stitched
+      // scroll and width-fit it, cutting off the bottom instead of fitting.
+      const wide = { width: 2000, height: 850 };
+      const layout = getImageLayout(wide, { width: 1206, height: 2622 }, "fit");
+      expect(layout.drawH).toBe(850);
+      expect(layout.drawW).toBeLessThanOrEqual(wide.width);
+    });
+
     it("falls back to single-axis fit on stitched scrolls instead of a sliver", () => {
       // 389x85910 fit-both-axes is a 4-px-wide stripe — unreadable. Switch to
       // width-fit (capped at 1x) so the image is visible with vertical scroll.

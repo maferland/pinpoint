@@ -46,8 +46,10 @@ interface SizeXY { width: number; height: number; }
 export function getImageLayout(viewport: SizeXY, img: SizeXY, mode: ViewMode): ImageLayout {
   const viewportAspect = viewport.width / viewport.height;
   const imageAspect = img.width / img.height;
-  const extremeTall = imageAspect < viewportAspect * 0.25;
-  const extremeWide = imageAspect > viewportAspect * 4;
+  // Absolute, not viewport-relative: a wide window must not reclassify an
+  // ordinary phone capture (~0.46) as a stitched scroll and override fit mode.
+  const extremeTall = imageAspect < 0.2;
+  const extremeWide = imageAspect > 5;
   let scale: number;
   if (extremeTall) {
     scale = Math.min(viewport.width / img.width, 1);
