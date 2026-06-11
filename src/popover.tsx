@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PinpointAnnotation } from "./types.ts";
 
 interface PopoverProps {
@@ -26,7 +26,7 @@ function useFlushSave(
   const onUpdateRef = useRef(onUpdate);
   const onDeleteRef = useRef(onDelete);
   const cancelRef = useRef(false);
-  useEffect(() => { draftRef.current = draft; }, [draft]);
+  useLayoutEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { committedRef.current = committed; }, [committed]);
   useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
   useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
@@ -60,6 +60,12 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [comment]);
 
   const handleBlur = useCallback(
     (e: React.FocusEvent) => {

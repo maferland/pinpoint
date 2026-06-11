@@ -43,15 +43,21 @@ Plain text like `/pinpoint:review /tmp/foo.png` is just text — it doesn't run 
 Bash(command="pinpoint review /tmp/screenshot.png --context 'Login page after auth changes — suspect spacing bug under .form-row'")
 ```
 
-Before/after comparison (opens side-by-side UI, each pane independently annotatable):
+Before/after comparison pairs (`--pair before after`, repeatable) mixed freely with standalone images:
 
 ```
-Bash(command="pinpoint review /tmp/before.png /tmp/after.png --compare --context 'Login page — checking button spacing fix'")
+Bash(command="pinpoint review --pair /tmp/before.png /tmp/after.png --context 'Button spacing fix'")
 ```
 
-`--compare` requires exactly 2 images. The first is "Before" (left pane), the second is "After" (right pane). Without `--compare`, two images use the normal thumbnail-strip UI.
+```
+Bash(command="pinpoint review --pair /tmp/before.png /tmp/after.png --pair /tmp/old.png /tmp/new.png /tmp/extra.png --context 'Two comparisons + a standalone'")
+```
 
-Multiple images without comparison:
+Each `--pair` opens a side-by-side Before/After pane; standalone positional args use the normal single-image canvas. All slots share one thumbnail strip; arrow keys navigate between them.
+
+`--compare` is still accepted as an alias for a single `--pair` (legacy).
+
+Multiple standalone images without comparison:
 
 ```
 Bash(command="pinpoint review /tmp/step1.png /tmp/step2.png /tmp/step3.png --context '...'")
@@ -82,55 +88,27 @@ A `PostToolUse` hook bundled with the plugin will inject a reminder when annotat
 
 ### 4. Read the returned JSON and act
 
-**Normal mode** stdout:
+All modes return the same shape. `mode` is `"review"` (all standalone), `"compare"` (all pairs), or `"mixed"` (both):
 
 ```json
 {
-  "context": "Login page after auth changes",
-  "images": [{ "path": "/tmp/screenshot.png", "width": 1440, "height": 900 }],
-  "annotations": [
-    {
-      "number": 1,
-      "image": "/tmp/screenshot.png",
-      "imageIndex": 0,
-      "pin": { "x": 60.0, "y": 80.1 },
-      "box": { "x": 60.0, "y": 80.1, "width": 12.0, "height": 5.0 },
-      "comment": "Footer spacing too tight"
-    }
-  ]
-}
-```
-
-**Compare mode** stdout (`--compare` flag):
-
-```json
-{
-  "mode": "compare",
-  "context": "Login page — checking button spacing fix",
-  "comparison": {
-    "before": { "path": "/tmp/before.png", "width": 1440, "height": 900 },
-    "after":  { "path": "/tmp/after.png",  "width": 1440, "height": 900 }
-  },
-  "images": [
-    { "path": "/tmp/before.png", "width": 1440, "height": 900 },
-    { "path": "/tmp/after.png",  "width": 1440, "height": 900 }
+  "mode": "mixed",
+  "context": "Two comparisons + a standalone",
+  "slots": [
+    { "type": "compare", "before": { "path": "/tmp/before.png", "width": 1440, "height": 900 }, "after": { "path": "/tmp/after.png", "width": 1440, "height": 900 } },
+    { "type": "single",  "image":  { "path": "/tmp/extra.png",  "width": 1440, "height": 900 } }
   ],
+  "images": [ ... ],
   "annotations": [
     {
       "number": 1,
       "image": "/tmp/before.png",
       "imageIndex": 0,
+      "slotIndex": 0,
       "side": "before",
       "pin": { "x": 45.0, "y": 32.1 },
+      "box": { "x": 45.0, "y": 32.1, "width": 6.0, "height": 6.0 },
       "comment": "Button too small here"
-    },
-    {
-      "number": 2,
-      "image": "/tmp/after.png",
-      "imageIndex": 1,
-      "side": "after",
-      "pin": { "x": 45.2, "y": 32.0 },
-      "comment": "Better, but padding still uneven"
     }
   ]
 }
@@ -138,8 +116,9 @@ A `PostToolUse` hook bundled with the plugin will inject a reminder when annotat
 
 Each annotation has:
 - **number** — order placed
-- **image** — absolute path to the image
-- **side** — `"before"` or `"after"` (compare mode only); tells you which pane the annotation came from without having to check `imageIndex`
+- **image** — absolute path to the annotated image
+- **slotIndex** — which slot (thumbnail) the pin belongs to
+- **side** — `"before"` or `"after"` on compare slots; absent on single slots
 - **pin** + optional **box** — position as percentages (0–100) of image dimensions
 - **comment** — the user's feedback
 

@@ -18,36 +18,45 @@ import { createHttpServer } from "./main.js";
 import { readImageDimensions } from "./server.js";
 import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
 import { generateId, openBrowser } from "./util.js";
-import type { ImageInfo, PinpointReview } from "./types.js";
+import type { ImageInfo, PinpointReview, ReviewSlot } from "./types.js";
+import { resolveSlots } from "./types.js";
 
 const FINALIZE_TIMEOUT_MS = 96 * 60 * 60 * 1000;
 
 interface ParsedArgs {
   command: string;
   positional: string[];
+  pairs: [string, string][];
   context?: string;
   output?: string;
   mode?: MergeMode;
   port: number;
-  compare?: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   const [command, ...rest] = argv;
   const positional: string[] = [];
+  const pairs: [string, string][] = [];
   let context: string | undefined;
   let output: string | undefined;
   let mode: MergeMode | undefined;
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
-
-  let compare: boolean | undefined;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--context") { context = rest[++i]; continue; }
     if (arg === "--port") { port = parseInt(rest[++i], 10); continue; }
     if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
-    if (arg === "--compare") { compare = true; continue; }
+    if (arg === "--pair" || arg === "--compare") {
+      const a = rest[++i];
+      const b = rest[++i];
+      if (!a || !b) {
+        process.stderr.write(`${arg} requires two image paths\n`);
+        process.exit(2);
+      }
+      pairs.push([a, b]);
+      continue;
+    }
     if (arg === "--mode") {
       const m = rest[++i];
       if (m !== "replace" && m !== "append" && m !== "new") {
@@ -64,35 +73,48 @@ function parseArgs(argv: string[]): ParsedArgs {
     positional.push(arg);
   }
 
-  return { command, positional, context, output, mode, port, compare };
+  return { command, positional, pairs, context, output, mode, port };
 }
 
 function reviewToOutput(final: PinpointReview): object {
   const images = final.images.map((img) => ({ path: img.path, width: img.width, height: img.height }));
-  const annotations = final.annotations.map((a) => ({
-    number: a.number,
-    image: final.images[a.imageIndex]?.path,
-    imageIndex: a.imageIndex,
-    ...(final.compareMode ? { side: a.imageIndex === 0 ? "before" : "after" } : {}),
-    pin: a.pin,
-    box: a.box,
-    comment: a.comment,
-  }));
+  const slots = resolveSlots(final);
 
-  if (final.compareMode) {
+  // Build a lookup: imageIndex → {slotIndex, side?}
+  const imageToSlot = new Map<number, { slotIndex: number; side?: "before" | "after" }>();
+  slots.forEach((slot, si) => {
+    if (slot.type === "single") {
+      imageToSlot.set(slot.imageIndex, { slotIndex: si });
+    } else {
+      imageToSlot.set(slot.beforeIndex, { slotIndex: si, side: "before" });
+      imageToSlot.set(slot.afterIndex, { slotIndex: si, side: "after" });
+    }
+  });
+
+  const annotations = final.annotations.map((a) => {
+    const slotInfo = imageToSlot.get(a.imageIndex);
     return {
-      mode: "compare",
-      context: final.context,
-      comparison: {
-        before: images[0],
-        after: images[1],
-      },
-      images,
-      annotations,
+      number: a.number,
+      image: final.images[a.imageIndex]?.path,
+      imageIndex: a.imageIndex,
+      ...(slotInfo?.slotIndex !== undefined ? { slotIndex: slotInfo.slotIndex } : {}),
+      ...(slotInfo?.side ? { side: slotInfo.side } : {}),
+      pin: a.pin,
+      box: a.box,
+      comment: a.comment,
     };
-  }
+  });
 
-  return { context: final.context, images, annotations };
+  const hasCompare = slots.some((s) => s.type === "compare");
+  const mode = hasCompare ? (slots.every((s) => s.type === "compare") ? "compare" : "mixed") : "review";
+
+  const outputSlots = slots.map((slot) =>
+    slot.type === "compare"
+      ? { type: "compare", before: images[slot.beforeIndex], after: images[slot.afterIndex] }
+      : { type: "single", image: images[slot.imageIndex] }
+  );
+
+  return { mode, context: final.context, slots: outputSlots, images, annotations };
 }
 
 async function runAnnotationSession(
@@ -130,26 +152,49 @@ async function runAnnotationSession(
 }
 
 async function reviewCommand(args: ParsedArgs): Promise<void> {
-  if (args.positional.length === 0) {
-    process.stderr.write("usage: pinpoint review <image>... [--context \"...\"] [--compare]\n");
+  if (args.positional.length === 0 && args.pairs.length === 0) {
+    process.stderr.write(
+      "usage: pinpoint review [--pair before after]... [image...] [--context \"...\"]\n"
+    );
     process.exit(2);
   }
 
-  if (args.compare && args.positional.length !== 2) {
-    process.stderr.write("--compare requires exactly 2 images (before and after)\n");
-    process.exit(2);
-  }
+  const allPaths: string[] = [
+    ...args.pairs.flat(),
+    ...args.positional,
+  ];
 
-  const resolved: ImageInfo[] = [];
-  for (const p of args.positional) {
+  const resolvedMap = new Map<string, ImageInfo>();
+  for (const p of allPaths) {
+    if (resolvedMap.has(p)) continue;
     const abs = path.resolve(p);
     try {
       const dims = await readImageDimensions(abs);
-      resolved.push({ path: abs, ...dims });
+      resolvedMap.set(p, { path: abs, ...dims });
     } catch {
-      process.stderr.write(`Image not found or unreadable: ${abs}\n`);
+      process.stderr.write(`Image not found or unreadable: ${path.resolve(p)}\n`);
       process.exit(1);
     }
+  }
+
+  // Build flat images array and slots in declaration order: pairs first, then standalones.
+  const images: ImageInfo[] = [];
+  const slots: ReviewSlot[] = [];
+  const pathToIndex = new Map<string, number>();
+
+  const getIndex = (p: string): number => {
+    if (!pathToIndex.has(p)) {
+      pathToIndex.set(p, images.length);
+      images.push(resolvedMap.get(p)!);
+    }
+    return pathToIndex.get(p)!;
+  };
+
+  for (const [before, after] of args.pairs) {
+    slots.push({ type: "compare", beforeIndex: getIndex(before), afterIndex: getIndex(after) });
+  }
+  for (const p of args.positional) {
+    slots.push({ type: "single", imageIndex: getIndex(p) });
   }
 
   const store = new FileReviewStore();
@@ -157,11 +202,11 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
   const review: PinpointReview = {
     version: "1.0",
     id: reviewId,
-    images: resolved,
+    images,
+    slots,
     context: args.context,
     createdAt: new Date().toISOString(),
     annotations: [],
-    ...(args.compare ? { compareMode: true } : {}),
   };
   await store.save(review);
 
@@ -291,7 +336,7 @@ async function main(): Promise<void> {
   process.stderr.write(
     "pinpoint — visual annotation CLI\n\n" +
     "Commands:\n" +
-    "  pinpoint review <image>... [--context \"...\"] [--compare] [--port N]\n" +
+    "  pinpoint review [--pair before after]... [image...] [--context \"...\"] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
     "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n" +
     "  pinpoint demo [--port N]\n"

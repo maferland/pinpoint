@@ -334,7 +334,7 @@ export function CanvasLayer({
     >
       <div
         ref={viewportRef}
-        className="absolute inset-0 overflow-auto"
+        className="absolute inset-0 overflow-auto canvas-viewport"
         // `safe center` keeps the canvas centered when it fits but prevents
         // flex/grid centering from clipping the leading edge once it overflows.
         style={{ display: "grid", placeItems: "safe center" }}
