@@ -141,27 +141,23 @@ export function AnnotatorApp() {
 
   const updateAnnotation = useCallback(
     (id: string, updates: Partial<PinpointAnnotation>) => {
-      setAnnotations((prev) => {
-        const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a));
-        persistAnnotations(next);
-        return next;
-      });
+      const next = annotations.map((a) => (a.id === id ? { ...a, ...updates } : a));
+      setAnnotations(next);
+      persistAnnotations(next);
     },
-    [persistAnnotations]
+    [annotations, persistAnnotations]
   );
 
   const removeAnnotation = useCallback(
     (id: string) => {
-      setAnnotations((prev) => {
-        const next = prev
-          .filter((a) => a.id !== id)
-          .map((a, i) => ({ ...a, number: i + 1 }));
-        persistAnnotations(next);
-        return next;
-      });
+      const next = annotations
+        .filter((a) => a.id !== id)
+        .map((a, i) => ({ ...a, number: i + 1 }));
+      setAnnotations(next);
+      persistAnnotations(next);
       if (selectedId === id) setSelectedId(null);
     },
-    [selectedId, persistAnnotations]
+    [annotations, selectedId, persistAnnotations]
   );
 
   useEffect(() => {
