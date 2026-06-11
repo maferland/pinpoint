@@ -29,6 +29,7 @@ interface ParsedArgs {
   output?: string;
   mode?: MergeMode;
   port: number;
+  compare?: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -39,11 +40,14 @@ function parseArgs(argv: string[]): ParsedArgs {
   let mode: MergeMode | undefined;
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
 
+  let compare: boolean | undefined;
+
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--context") { context = rest[++i]; continue; }
     if (arg === "--port") { port = parseInt(rest[++i], 10); continue; }
     if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
+    if (arg === "--compare") { compare = true; continue; }
     if (arg === "--mode") {
       const m = rest[++i];
       if (m !== "replace" && m !== "append" && m !== "new") {
@@ -60,22 +64,35 @@ function parseArgs(argv: string[]): ParsedArgs {
     positional.push(arg);
   }
 
-  return { command, positional, context, output, mode, port };
+  return { command, positional, context, output, mode, port, compare };
 }
 
 function reviewToOutput(final: PinpointReview): object {
-  return {
-    context: final.context,
-    images: final.images.map((img) => ({ path: img.path, width: img.width, height: img.height })),
-    annotations: final.annotations.map((a) => ({
-      number: a.number,
-      image: final.images[a.imageIndex]?.path,
-      imageIndex: a.imageIndex,
-      pin: a.pin,
-      box: a.box,
-      comment: a.comment,
-    })),
-  };
+  const images = final.images.map((img) => ({ path: img.path, width: img.width, height: img.height }));
+  const annotations = final.annotations.map((a) => ({
+    number: a.number,
+    image: final.images[a.imageIndex]?.path,
+    imageIndex: a.imageIndex,
+    ...(final.compareMode ? { side: a.imageIndex === 0 ? "before" : "after" } : {}),
+    pin: a.pin,
+    box: a.box,
+    comment: a.comment,
+  }));
+
+  if (final.compareMode) {
+    return {
+      mode: "compare",
+      context: final.context,
+      comparison: {
+        before: images[0],
+        after: images[1],
+      },
+      images,
+      annotations,
+    };
+  }
+
+  return { context: final.context, images, annotations };
 }
 
 async function runAnnotationSession(
@@ -114,7 +131,12 @@ async function runAnnotationSession(
 
 async function reviewCommand(args: ParsedArgs): Promise<void> {
   if (args.positional.length === 0) {
-    process.stderr.write("usage: pinpoint review <image>... [--context \"...\"]\n");
+    process.stderr.write("usage: pinpoint review <image>... [--context \"...\"] [--compare]\n");
+    process.exit(2);
+  }
+
+  if (args.compare && args.positional.length !== 2) {
+    process.stderr.write("--compare requires exactly 2 images (before and after)\n");
     process.exit(2);
   }
 
@@ -139,6 +161,7 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
     context: args.context,
     createdAt: new Date().toISOString(),
     annotations: [],
+    ...(args.compare ? { compareMode: true } : {}),
   };
   await store.save(review);
 
@@ -268,7 +291,7 @@ async function main(): Promise<void> {
   process.stderr.write(
     "pinpoint — visual annotation CLI\n\n" +
     "Commands:\n" +
-    "  pinpoint review <image>... [--context \"...\"] [--port N]\n" +
+    "  pinpoint review <image>... [--context \"...\"] [--compare] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
     "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n" +
     "  pinpoint demo [--port N]\n"

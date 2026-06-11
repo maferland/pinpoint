@@ -354,17 +354,24 @@ export function CanvasLayer({
               <AnnotationOverlay annotations={annotations} selectedId={selectedId} />
             )}
 
-            {imgLoaded && selectedAnn && layout.drawW > 0 && (
-              <Popover
-                key={selectedAnn.id}
-                annotation={selectedAnn}
-                x={(selectedAnn.pin.x / 100) * layout.drawW + PIN_RADIUS + 8}
-                y={(selectedAnn.pin.y / 100) * layout.drawH - 10}
-                onUpdate={(updates) => onUpdate(selectedAnn.id, updates)}
-                onDelete={() => onDelete(selectedAnn.id)}
-                onClose={() => onSelect(null)}
-              />
-            )}
+            {imgLoaded && selectedAnn && layout.drawW > 0 && (() => {
+              const POPOVER_W = 280;
+              const pinPx = (selectedAnn.pin.x / 100) * layout.drawW;
+              const popoverX = pinPx + PIN_RADIUS + 8 + POPOVER_W > layout.drawW
+                ? Math.max(0, pinPx - PIN_RADIUS - 8 - POPOVER_W)
+                : pinPx + PIN_RADIUS + 8;
+              return (
+                <Popover
+                  key={selectedAnn.id}
+                  annotation={selectedAnn}
+                  x={popoverX}
+                  y={(selectedAnn.pin.y / 100) * layout.drawH - 10}
+                  onUpdate={(updates) => onUpdate(selectedAnn.id, updates)}
+                  onDelete={() => onDelete(selectedAnn.id)}
+                  onClose={() => onSelect(null)}
+                />
+              );
+            })()}
         </div>
       </div>
       <ScrollHints hints={scrollHints} onScroll={(dir) => {
