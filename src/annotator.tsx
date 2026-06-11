@@ -115,11 +115,11 @@ export function AnnotatorApp() {
   }, [reviewId]);
 
   const addAnnotation = useCallback(
-    (box: { x: number; y: number; width: number; height: number }) => {
+    (box: { x: number; y: number; width: number; height: number }, imageIndexOverride?: number) => {
       const ann: PinpointAnnotation = {
         id: crypto.randomUUID().slice(0, 12),
         number: annotations.length + 1,
-        imageIndex: activeImageIndex,
+        imageIndex: imageIndexOverride ?? activeImageIndex,
         pin: { x: box.x, y: box.y },
         box,
         comment: "",
@@ -174,13 +174,15 @@ export function AnnotatorApp() {
       // targets always get to handle their own keys.
       if (editable || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
-      if (e.key === "ArrowLeft" && review && activeImageIndex > 0) {
-        setActiveImageIndex((i) => i - 1);
-        setSelectedId(null);
-      }
-      if (e.key === "ArrowRight" && review && activeImageIndex < review.images.length - 1) {
-        setActiveImageIndex((i) => i + 1);
-        setSelectedId(null);
+      if (!review?.compareMode) {
+        if (e.key === "ArrowLeft" && review && activeImageIndex > 0) {
+          setActiveImageIndex((i) => i - 1);
+          setSelectedId(null);
+        }
+        if (e.key === "ArrowRight" && review && activeImageIndex < review.images.length - 1) {
+          setActiveImageIndex((i) => i + 1);
+          setSelectedId(null);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -195,6 +197,7 @@ export function AnnotatorApp() {
     );
   }
 
+  const compareMode = review?.compareMode ?? false;
   const imageCount = review?.images.length ?? 0;
   const activeImage = review?.images[activeImageIndex];
   const activeDetails = activeImage?.details && Object.keys(activeImage.details).length > 0
@@ -221,7 +224,7 @@ export function AnnotatorApp() {
         onBeforeExport={flushAnnotations}
       />
 
-      {imageCount > 1 && (
+      {!compareMode && imageCount > 1 && (
         <div className="h-16 flex items-center gap-2 px-4 bg-card border-b border-border shrink-0 overflow-x-auto">
           {review!.images.map((img, i) => (
             <Thumbnail
@@ -237,26 +240,51 @@ export function AnnotatorApp() {
         </div>
       )}
 
-      <div className="flex-1 relative overflow-hidden flex">
-        <CanvasLayer
-          imageDataUrl={currentImageUrl}
-          annotations={activeAnnotations}
-          selectedId={selectedId}
-          viewMode={prefs.viewMode}
-          onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
-          onSelect={setSelectedId}
-          onUpdate={updateAnnotation}
-          onDelete={removeAnnotation}
-        />
-        {detailsVisible && activeDetails && (
-          <DetailsPanel
-            key={activeImageIndex}
-            details={activeDetails}
-            imageLabel={imageCount > 1 ? `Image ${activeImageIndex + 1}` : "Details"}
-            onClose={() => setDetailsHidden(true)}
+      {compareMode && reviewId ? (
+        <div className="flex-1 overflow-hidden flex">
+          {(["before", "after"] as const).map((side, idx) => (
+            <div key={side} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
+              <div
+                className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
+                style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+              >
+                {side === "before" ? "Before" : "After"}
+              </div>
+              <CanvasLayer
+                imageDataUrl={buildImageUrl(reviewId, idx)}
+                annotations={annotations.filter((a) => a.imageIndex === idx)}
+                selectedId={selectedId}
+                viewMode={prefs.viewMode}
+                onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, idx)}
+                onSelect={setSelectedId}
+                onUpdate={updateAnnotation}
+                onDelete={removeAnnotation}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex-1 relative overflow-hidden flex">
+          <CanvasLayer
+            imageDataUrl={currentImageUrl}
+            annotations={activeAnnotations}
+            selectedId={selectedId}
+            viewMode={prefs.viewMode}
+            onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
+            onSelect={setSelectedId}
+            onUpdate={updateAnnotation}
+            onDelete={removeAnnotation}
           />
-        )}
-      </div>
+          {detailsVisible && activeDetails && (
+            <DetailsPanel
+              key={activeImageIndex}
+              details={activeDetails}
+              imageLabel={imageCount > 1 ? `Image ${activeImageIndex + 1}` : "Details"}
+              onClose={() => setDetailsHidden(true)}
+            />
+          )}
+        </div>
+      )}
 
       <UpdateBanner />
 

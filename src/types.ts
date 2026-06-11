@@ -25,4 +25,5 @@ export interface PinpointReview {
   context?: string;
   createdAt: string;
   annotations: PinpointAnnotation[];
+  compareMode?: boolean;
 }
