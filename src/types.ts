@@ -2,10 +2,6 @@ export interface ImageInfo {
   path: string;
   width: number;
   height: number;
-  /**
-   * Key/value pairs the agent attaches to a screenshot — route, state, viewport,
-   * what to look at, etc. Rendered in the draggable details panel.
-   */
   details?: Record<string, string>;
 }
 
@@ -18,12 +14,33 @@ export interface PinpointAnnotation {
   comment: string;
 }
 
+export interface SingleSlot {
+  type: "single";
+  imageIndex: number;
+}
+
+export interface CompareSlot {
+  type: "compare";
+  beforeIndex: number;
+  afterIndex: number;
+}
+
+export type ReviewSlot = SingleSlot | CompareSlot;
+
 export interface PinpointReview {
   version: "1.0";
   id: string;
   images: ImageInfo[];
+  slots?: ReviewSlot[];
   context?: string;
   createdAt: string;
   annotations: PinpointAnnotation[];
+  /** @deprecated use slots */
   compareMode?: boolean;
+}
+
+export function resolveSlots(review: PinpointReview): ReviewSlot[] {
+  if (review.slots) return review.slots;
+  if (review.compareMode) return [{ type: "compare", beforeIndex: 0, afterIndex: 1 }];
+  return review.images.map((_, i) => ({ type: "single", imageIndex: i }));
 }

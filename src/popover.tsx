@@ -60,6 +60,12 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [comment]);
 
   const handleBlur = useCallback(
     (e: React.FocusEvent) => {
