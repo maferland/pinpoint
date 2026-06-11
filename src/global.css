@@ -98,6 +98,10 @@ body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); 
 
 .placeholder\:text-muted-foreground::placeholder { color: hsl(var(--muted-foreground)) !important; }
 
+/* Hide scrollbars on the canvas viewport — scroll still works, chevrons handle navigation */
+.canvas-viewport::-webkit-scrollbar { display: none; }
+.canvas-viewport { scrollbar-width: none; }
+
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
