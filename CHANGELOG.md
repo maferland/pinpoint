@@ -1,3 +1,9 @@
+## [v0.9.0]
+
+- **Mix comparisons and standalone images in one session.** `--pair before after` (repeatable) creates side-by-side Before/After slots; positional args stay as normal single-image slots. One thumbnail strip, arrow key navigation across everything. `--compare` still works as an alias for a single pair.
+- **Comment box grows as you type.** No more fixed two-line textarea that clips long feedback.
+- **Annotations no longer lost when hitting Send without blurring first.** Two bugs fixed: the Save button now flushes pending changes before finalizing, and `persistAnnotations` was being called inside a React setState updater (deferred), meaning the flush could read a stale snapshot.
+
 ## [v0.8.4]
 
 - **Side-by-side comparison mode.** Pass `--compare` with two screenshots and the annotator opens them in Before/After panes — each independently annotatable. The returned JSON gains a `side: "before" | "after"` field on every annotation so the agent knows which image was targeted without decoding `imageIndex`.
