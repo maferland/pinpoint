@@ -55,8 +55,6 @@ Bash(command="pinpoint review --pair /tmp/before.png /tmp/after.png --pair /tmp/
 
 Each `--pair` opens a side-by-side Before/After pane; standalone positional args use the normal single-image canvas. All slots share one thumbnail strip; arrow keys navigate between them.
 
-`--compare` is still accepted as an alias for a single `--pair` (legacy).
-
 Multiple standalone images without comparison:
 
 ```
