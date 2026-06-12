@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PinpointAnnotation, PinpointReview } from "./types.ts";
+import { resolveSlots } from "./types.ts";
 import type { Preferences } from "./api.ts";
 import { Toolbar } from "./toolbar.tsx";
 import { CanvasLayer } from "./canvas-layer.tsx";
@@ -35,7 +36,7 @@ export function AnnotatorApp() {
   const [review, setReview] = useState<PinpointReview | null>(null);
   const [annotations, setAnnotations] = useState<PinpointAnnotation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [activeSlotIndex, setActiveSlotIndex] = useState(0);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -81,11 +82,16 @@ export function AnnotatorApp() {
     paused: finalized,
   });
 
-  const currentImageUrl = review && review.images.length > 0 && reviewId
-    ? buildImageUrl(reviewId, activeImageIndex)
+  const slots = review ? resolveSlots(review) : [];
+  const activeSlot = slots[activeSlotIndex] ?? null;
+
+  const currentImageUrl = review && activeSlot?.type === "single" && reviewId
+    ? buildImageUrl(reviewId, activeSlot.imageIndex)
     : "";
 
-  const activeAnnotations = annotations.filter((a) => a.imageIndex === activeImageIndex);
+  const activeAnnotations = activeSlot?.type === "single"
+    ? annotations.filter((a) => a.imageIndex === activeSlot.imageIndex)
+    : [];
 
   const pendingAnnotations = useRef<PinpointAnnotation[] | null>(null);
   const persistAnnotations = useCallback(
@@ -116,10 +122,11 @@ export function AnnotatorApp() {
 
   const addAnnotation = useCallback(
     (box: { x: number; y: number; width: number; height: number }, imageIndexOverride?: number) => {
+      const fallbackIndex = activeSlot?.type === "single" ? activeSlot.imageIndex : 0;
       const ann: PinpointAnnotation = {
         id: crypto.randomUUID().slice(0, 12),
         number: annotations.length + 1,
-        imageIndex: imageIndexOverride ?? activeImageIndex,
+        imageIndex: imageIndexOverride ?? fallbackIndex,
         pin: { x: box.x, y: box.y },
         box,
         comment: "",
@@ -129,32 +136,28 @@ export function AnnotatorApp() {
       setSelectedId(ann.id);
       persistAnnotations(updated);
     },
-    [annotations, activeImageIndex, persistAnnotations]
+    [annotations, activeSlot, persistAnnotations]
   );
 
   const updateAnnotation = useCallback(
     (id: string, updates: Partial<PinpointAnnotation>) => {
-      setAnnotations((prev) => {
-        const next = prev.map((a) => (a.id === id ? { ...a, ...updates } : a));
-        persistAnnotations(next);
-        return next;
-      });
+      const next = annotations.map((a) => (a.id === id ? { ...a, ...updates } : a));
+      setAnnotations(next);
+      persistAnnotations(next);
     },
-    [persistAnnotations]
+    [annotations, persistAnnotations]
   );
 
   const removeAnnotation = useCallback(
     (id: string) => {
-      setAnnotations((prev) => {
-        const next = prev
-          .filter((a) => a.id !== id)
-          .map((a, i) => ({ ...a, number: i + 1 }));
-        persistAnnotations(next);
-        return next;
-      });
+      const next = annotations
+        .filter((a) => a.id !== id)
+        .map((a, i) => ({ ...a, number: i + 1 }));
+      setAnnotations(next);
+      persistAnnotations(next);
       if (selectedId === id) setSelectedId(null);
     },
-    [selectedId, persistAnnotations]
+    [annotations, selectedId, persistAnnotations]
   );
 
   useEffect(() => {
@@ -174,20 +177,18 @@ export function AnnotatorApp() {
       // targets always get to handle their own keys.
       if (editable || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
-      if (!review?.compareMode) {
-        if (e.key === "ArrowLeft" && review && activeImageIndex > 0) {
-          setActiveImageIndex((i) => i - 1);
-          setSelectedId(null);
-        }
-        if (e.key === "ArrowRight" && review && activeImageIndex < review.images.length - 1) {
-          setActiveImageIndex((i) => i + 1);
-          setSelectedId(null);
-        }
+      if (e.key === "ArrowLeft" && activeSlotIndex > 0) {
+        setActiveSlotIndex((i) => i - 1);
+        setSelectedId(null);
+      }
+      if (e.key === "ArrowRight" && activeSlotIndex < slots.length - 1) {
+        setActiveSlotIndex((i) => i + 1);
+        setSelectedId(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, activeImageIndex, review, removeAnnotation]);
+  }, [selectedId, activeSlotIndex, slots, removeAnnotation]);
 
   if (!reviewId) {
     return (
@@ -197,9 +198,9 @@ export function AnnotatorApp() {
     );
   }
 
-  const compareMode = review?.compareMode ?? false;
-  const imageCount = review?.images.length ?? 0;
-  const activeImage = review?.images[activeImageIndex];
+  const activeImage = activeSlot?.type === "single"
+    ? review?.images[activeSlot.imageIndex]
+    : null;
   const activeDetails = activeImage?.details && Object.keys(activeImage.details).length > 0
     ? activeImage.details
     : null;
@@ -224,38 +225,48 @@ export function AnnotatorApp() {
         onBeforeExport={flushAnnotations}
       />
 
-      {!compareMode && imageCount > 1 && (
+      {slots.length > 1 && reviewId && (
         <div className="h-16 flex items-center gap-2 px-4 bg-card border-b border-border shrink-0 overflow-x-auto">
-          {review!.images.map((img, i) => (
-            <Thumbnail
-              key={i}
-              src={buildImageUrl(reviewId, i)}
-              index={i}
-              active={i === activeImageIndex}
-              annotationCount={annotations.filter((a) => a.imageIndex === i).length}
-              hasDetails={!!img.details && Object.keys(img.details).length > 0}
-              onClick={() => { setActiveImageIndex(i); setSelectedId(null); }}
-            />
-          ))}
+          {slots.map((slot, si) => {
+            const annCount = slot.type === "single"
+              ? annotations.filter((a) => a.imageIndex === slot.imageIndex).length
+              : annotations.filter((a) => a.imageIndex === slot.beforeIndex || a.imageIndex === slot.afterIndex).length;
+            const img = review!.images[slot.type === "single" ? slot.imageIndex : slot.beforeIndex];
+            return (
+              <Thumbnail
+                key={si}
+                src={buildImageUrl(reviewId, slot.type === "single" ? slot.imageIndex : slot.beforeIndex)}
+                srcAfter={slot.type === "compare" ? buildImageUrl(reviewId, slot.afterIndex) : undefined}
+                index={si}
+                active={si === activeSlotIndex}
+                annotationCount={annCount}
+                hasDetails={!!img?.details && Object.keys(img.details).length > 0}
+                onClick={() => { setActiveSlotIndex(si); setSelectedId(null); }}
+              />
+            );
+          })}
         </div>
       )}
 
-      {compareMode && reviewId ? (
+      {activeSlot?.type === "compare" && reviewId ? (
         <div className="flex-1 overflow-hidden flex">
-          {(["before", "after"] as const).map((side, idx) => (
-            <div key={side} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
+          {([
+            { label: "Before", imgIndex: activeSlot.beforeIndex },
+            { label: "After", imgIndex: activeSlot.afterIndex },
+          ] as const).map(({ label, imgIndex }, idx) => (
+            <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
               <div
                 className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
                 style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
               >
-                {side === "before" ? "Before" : "After"}
+                {label}
               </div>
               <CanvasLayer
-                imageDataUrl={buildImageUrl(reviewId, idx)}
-                annotations={annotations.filter((a) => a.imageIndex === idx)}
+                imageDataUrl={buildImageUrl(reviewId, imgIndex)}
+                annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
                 selectedId={selectedId}
                 viewMode={prefs.viewMode}
-                onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, idx)}
+                onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
                 onSelect={setSelectedId}
                 onUpdate={updateAnnotation}
                 onDelete={removeAnnotation}
@@ -277,9 +288,9 @@ export function AnnotatorApp() {
           />
           {detailsVisible && activeDetails && (
             <DetailsPanel
-              key={activeImageIndex}
+              key={activeSlotIndex}
               details={activeDetails}
-              imageLabel={imageCount > 1 ? `Image ${activeImageIndex + 1}` : "Details"}
+              imageLabel={slots.length > 1 ? `Image ${activeSlotIndex + 1}` : "Details"}
               onClose={() => setDetailsHidden(true)}
             />
           )}

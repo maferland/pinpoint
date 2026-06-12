@@ -97,6 +97,7 @@ export function Toolbar({
   const sendDone = async () => {
     setDoneState("sending");
     try {
+      await onBeforeExport();
       await finalizeReview(reviewId);
       setDoneState("sent");
       onFinalized();
