@@ -1,3 +1,7 @@
+## [v0.8.4]
+
+- **Side-by-side comparison mode.** Pass `--compare` with two screenshots and the annotator opens them in Before/After panes — each independently annotatable. The returned JSON gains a `side: "before" | "after"` field on every annotation so the agent knows which image was targeted without decoding `imageIndex`.
+
 ## Unreleased
 
 - **Breaking: slash command rename.** `/pinpoint-review` is now `/pinpoint:review`. Claude Code auto-namespaces plugin commands via the plugin's `name` field, so the longstanding outlier moves under the same prefix as the new commands.
