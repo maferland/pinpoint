@@ -11,6 +11,7 @@ afterEach(() => {
 const DEFAULT_PREFS: Preferences = {
   autoCloseAfterDone: false,
   viewMode: "fit",
+  compareView: "split",
   idleReminder: false,
   idleReminderDelaySec: 60,
 };

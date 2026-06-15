@@ -38,12 +38,14 @@ export async function finalizeReview(reviewId: string): Promise<void> {
 }
 
 export type ViewMode = "fit" | "actual";
+export type CompareView = "split" | "single";
 
 export interface Preferences {
   autoCloseAfterDone: boolean;
   theme?: "dark" | "light";
   dismissedUpdateVersion?: string;
   viewMode: ViewMode;
+  compareView: CompareView;
   idleReminder: boolean;
   idleReminderDelaySec: number;
 }

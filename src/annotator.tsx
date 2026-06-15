@@ -9,6 +9,7 @@ import { Thumbnail } from "./thumbnail.tsx";
 import { DetailsPanel } from "./details-panel.tsx";
 import { HotkeysHelp } from "./hotkeys-help.tsx";
 import { useIdleReminder } from "./use-idle-reminder.ts";
+import { useKeyPress } from "./use-key-press.ts";
 import {
   getPreferences,
   getReview,
@@ -21,15 +22,10 @@ import {
 const DEFAULT_PREFS: Preferences = {
   autoCloseAfterDone: false,
   viewMode: "fit",
+  compareView: "split",
   idleReminder: false,
   idleReminderDelaySec: 60,
 };
-
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || target.isContentEditable;
-}
 
 export function AnnotatorApp() {
   const reviewId = reviewIdFromPath(window.location.pathname);
@@ -37,6 +33,7 @@ export function AnnotatorApp() {
   const [annotations, setAnnotations] = useState<PinpointAnnotation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const [activeSide, setActiveSide] = useState<"before" | "after">("before");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
@@ -84,6 +81,10 @@ export function AnnotatorApp() {
 
   const slots = review ? resolveSlots(review) : [];
   const activeSlot = slots[activeSlotIndex] ?? null;
+  const compareView = prefs.compareView ?? "split";
+
+  // Reset to "before" whenever the active slot changes
+  useEffect(() => { setActiveSide("before"); }, [activeSlotIndex]);
 
   const currentImageUrl = review && activeSlot?.type === "single" && reviewId
     ? buildImageUrl(reviewId, activeSlot.imageIndex)
@@ -160,35 +161,18 @@ export function AnnotatorApp() {
     [annotations, selectedId, persistAnnotations]
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const editable = isEditableTarget(e.target);
-
-      if (e.key === "Escape" && !editable) setSelectedId(null);
-
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !editable) {
-        removeAnnotation(selectedId);
-      }
-
-      if (e.key === "?" && !editable) { setHotkeysOpen((v) => !v); return; }
-
-      // Arrow navigation is plain-arrow only — modifier combos (cmd/ctrl+arrow
-      // for word/line jumps, shift for selection) stay native, and editable
-      // targets always get to handle their own keys.
-      if (editable || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-
-      if (e.key === "ArrowLeft" && activeSlotIndex > 0) {
-        setActiveSlotIndex((i) => i - 1);
-        setSelectedId(null);
-      }
-      if (e.key === "ArrowRight" && activeSlotIndex < slots.length - 1) {
-        setActiveSlotIndex((i) => i + 1);
-        setSelectedId(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, activeSlotIndex, slots, removeAnnotation]);
+  useKeyPress("Escape", () => setSelectedId(null));
+  useKeyPress(["Delete", "Backspace"], () => removeAnnotation(selectedId!), { when: !!selectedId });
+  useKeyPress("?", () => setHotkeysOpen((v) => !v));
+  useKeyPress("Tab", (e) => { e.preventDefault(); setActiveSide((s) => s === "before" ? "after" : "before"); }, {
+    when: activeSlot?.type === "compare" && compareView === "single",
+  });
+  useKeyPress("ArrowLeft", () => { setActiveSlotIndex((i) => i - 1); setSelectedId(null); }, {
+    when: activeSlotIndex > 0, modifiers: false,
+  });
+  useKeyPress("ArrowRight", () => { setActiveSlotIndex((i) => i + 1); setSelectedId(null); }, {
+    when: activeSlotIndex < slots.length - 1, modifiers: false,
+  });
 
   if (!reviewId) {
     return (
@@ -249,30 +233,92 @@ export function AnnotatorApp() {
       )}
 
       {activeSlot?.type === "compare" && reviewId ? (
-        <div className="flex-1 overflow-hidden flex">
-          {([
-            { label: "Before", imgIndex: activeSlot.beforeIndex },
-            { label: "After", imgIndex: activeSlot.afterIndex },
-          ] as const).map(({ label, imgIndex }, idx) => (
-            <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
-              <div
-                className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
-                style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
-              >
-                {label}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center gap-1 px-3 py-1.5 bg-card border-b border-border shrink-0">
+            {compareView === "single" && (
+              <div className="flex items-center rounded-md overflow-hidden border border-border text-[11px] font-medium">
+                {(["Before", "After"] as const).map((label) => (
+                  <button
+                    key={label}
+                    className={`px-3 py-0.5 transition-colors ${
+                      activeSide === label.toLowerCase()
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                    }`}
+                    onClick={() => setActiveSide(label.toLowerCase() as "before" | "after")}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
-              <CanvasLayer
-                imageDataUrl={buildImageUrl(reviewId, imgIndex)}
-                annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
-                selectedId={selectedId}
-                viewMode={prefs.viewMode}
-                onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
-                onSelect={setSelectedId}
-                onUpdate={updateAnnotation}
-                onDelete={removeAnnotation}
-              />
+            )}
+            <span className="text-[10px] text-muted-foreground ml-1 opacity-50 select-none">
+              {compareView === "single" ? "Tab to switch" : ""}
+            </span>
+            <div className="flex-1" />
+            <div className="flex items-center rounded-md overflow-hidden border border-border text-[11px] font-medium">
+              {(["split", "single"] as const).map((v) => (
+                <button
+                  key={v}
+                  className={`px-2.5 py-0.5 transition-colors ${
+                    compareView === v
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  }`}
+                  onClick={() => onPrefsChange({ compareView: v })}
+                >
+                  {v === "split" ? "Split" : "Single"}
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {compareView === "split" ? (
+            <div className="flex-1 overflow-hidden flex">
+              {([
+                { label: "Before", imgIndex: activeSlot.beforeIndex },
+                { label: "After", imgIndex: activeSlot.afterIndex },
+              ] as const).map(({ label, imgIndex }, idx) => (
+                <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
+                  <div
+                    className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
+                    style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+                  >
+                    {label}
+                  </div>
+                  <CanvasLayer
+                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
+                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
+                    selectedId={selectedId}
+                    viewMode={prefs.viewMode}
+                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
+                    onSelect={setSelectedId}
+                    onUpdate={updateAnnotation}
+                    onDelete={removeAnnotation}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden flex">
+              {(() => {
+                const imgIndex = activeSide === "before" ? activeSlot.beforeIndex : activeSlot.afterIndex;
+                return (
+                  <CanvasLayer
+                    key={imgIndex}
+                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
+                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
+                    selectedId={selectedId}
+                    viewMode={prefs.viewMode}
+                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
+                    onSelect={setSelectedId}
+                    onUpdate={updateAnnotation}
+                    onDelete={removeAnnotation}
+                  />
+                );
+              })()}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 relative overflow-hidden flex">
