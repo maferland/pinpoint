@@ -9,6 +9,7 @@ import { Thumbnail } from "./thumbnail.tsx";
 import { DetailsPanel } from "./details-panel.tsx";
 import { HotkeysHelp } from "./hotkeys-help.tsx";
 import { useIdleReminder } from "./use-idle-reminder.ts";
+import { useKeyPress } from "./use-key-press.ts";
 import {
   getPreferences,
   getReview,
@@ -21,15 +22,10 @@ import {
 const DEFAULT_PREFS: Preferences = {
   autoCloseAfterDone: false,
   viewMode: "fit",
+  compareView: "split",
   idleReminder: false,
   idleReminderDelaySec: 60,
 };
-
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || target.isContentEditable;
-}
 
 export function AnnotatorApp() {
   const reviewId = reviewIdFromPath(window.location.pathname);
@@ -37,12 +33,14 @@ export function AnnotatorApp() {
   const [annotations, setAnnotations] = useState<PinpointAnnotation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const [activeSide, setActiveSide] = useState<"before" | "after">("before");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [finalized, setFinalized] = useState(false);
   const [detailsHidden, setDetailsHidden] = useState(false);
   const [hotkeysOpen, setHotkeysOpen] = useState(false);
+  const [compareMenuOpen, setCompareMenuOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -84,6 +82,9 @@ export function AnnotatorApp() {
 
   const slots = review ? resolveSlots(review) : [];
   const activeSlot = slots[activeSlotIndex] ?? null;
+  const compareView = prefs.compareView ?? "split";
+
+  useEffect(() => { setActiveSide("before"); setCompareMenuOpen(false); }, [activeSlotIndex]);
 
   const currentImageUrl = review && activeSlot?.type === "single" && reviewId
     ? buildImageUrl(reviewId, activeSlot.imageIndex)
@@ -160,35 +161,18 @@ export function AnnotatorApp() {
     [annotations, selectedId, persistAnnotations]
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const editable = isEditableTarget(e.target);
-
-      if (e.key === "Escape" && !editable) setSelectedId(null);
-
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !editable) {
-        removeAnnotation(selectedId);
-      }
-
-      if (e.key === "?" && !editable) { setHotkeysOpen((v) => !v); return; }
-
-      // Arrow navigation is plain-arrow only — modifier combos (cmd/ctrl+arrow
-      // for word/line jumps, shift for selection) stay native, and editable
-      // targets always get to handle their own keys.
-      if (editable || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-
-      if (e.key === "ArrowLeft" && activeSlotIndex > 0) {
-        setActiveSlotIndex((i) => i - 1);
-        setSelectedId(null);
-      }
-      if (e.key === "ArrowRight" && activeSlotIndex < slots.length - 1) {
-        setActiveSlotIndex((i) => i + 1);
-        setSelectedId(null);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, activeSlotIndex, slots, removeAnnotation]);
+  useKeyPress("Escape", () => setSelectedId(null));
+  useKeyPress(["Delete", "Backspace"], () => removeAnnotation(selectedId!), { when: !!selectedId });
+  useKeyPress("?", () => setHotkeysOpen((v) => !v));
+  useKeyPress("Tab", (e) => { e.preventDefault(); setActiveSide((s) => s === "before" ? "after" : "before"); }, {
+    when: activeSlot?.type === "compare" && compareView === "single",
+  });
+  useKeyPress("ArrowLeft", () => { setActiveSlotIndex((i) => i - 1); setSelectedId(null); }, {
+    when: activeSlotIndex > 0, modifiers: false,
+  });
+  useKeyPress("ArrowRight", () => { setActiveSlotIndex((i) => i + 1); setSelectedId(null); }, {
+    when: activeSlotIndex < slots.length - 1, modifiers: false,
+  });
 
   if (!reviewId) {
     return (
@@ -249,30 +233,109 @@ export function AnnotatorApp() {
       )}
 
       {activeSlot?.type === "compare" && reviewId ? (
-        <div className="flex-1 overflow-hidden flex">
-          {([
-            { label: "Before", imgIndex: activeSlot.beforeIndex },
-            { label: "After", imgIndex: activeSlot.afterIndex },
-          ] as const).map(({ label, imgIndex }, idx) => (
-            <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
-              <div
-                className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
-                style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
-              >
-                {label}
-              </div>
-              <CanvasLayer
-                imageDataUrl={buildImageUrl(reviewId, imgIndex)}
-                annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
-                selectedId={selectedId}
-                viewMode={prefs.viewMode}
-                onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
-                onSelect={setSelectedId}
-                onUpdate={updateAnnotation}
-                onDelete={removeAnnotation}
-              />
+        <div className="flex-1 overflow-hidden relative">
+          {/* Canvas area */}
+          {compareView === "split" ? (
+            <div className="absolute inset-0 flex">
+              {([
+                { label: "Before", imgIndex: activeSlot.beforeIndex },
+                { label: "After", imgIndex: activeSlot.afterIndex },
+              ] as const).map(({ label, imgIndex }, idx) => (
+                <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
+                  <div
+                    className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
+                    style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+                  >
+                    {label}
+                  </div>
+                  <CanvasLayer
+                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
+                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
+                    selectedId={selectedId}
+                    viewMode={prefs.viewMode}
+                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
+                    onSelect={setSelectedId}
+                    onUpdate={updateAnnotation}
+                    onDelete={removeAnnotation}
+                  />
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (
+            <div className="absolute inset-0 flex">
+              {(() => {
+                const imgIndex = activeSide === "before" ? activeSlot.beforeIndex : activeSlot.afterIndex;
+                return (
+                  <CanvasLayer
+                    key={imgIndex}
+                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
+                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
+                    selectedId={selectedId}
+                    viewMode={prefs.viewMode}
+                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
+                    onSelect={setSelectedId}
+                    onUpdate={updateAnnotation}
+                    onDelete={removeAnnotation}
+                  />
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Floating compare menu button */}
+          <div className="absolute top-2 right-2 z-20" onMouseDown={(e) => e.stopPropagation()}>
+            <button
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-white transition-opacity select-none ${compareMenuOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+              style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
+              onClick={() => setCompareMenuOpen((v) => !v)}
+            >
+              <SplitIcon />
+              {compareView === "single" ? (activeSide === "before" ? "Before" : "After") : "Split"}
+            </button>
+
+            {compareMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 rounded-lg border border-border shadow-xl overflow-hidden"
+                style={{ backgroundColor: "hsl(var(--popover))", minWidth: 120 }}
+              >
+                <div className="px-3 py-2 border-b border-border">
+                  <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wide">View</p>
+                  <div className="flex items-center rounded overflow-hidden border border-border text-[11px] font-medium">
+                    {(["split", "single"] as const).map((v) => (
+                      <button
+                        key={v}
+                        className={`flex-1 px-2 py-1 transition-colors ${compareView === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                        onClick={() => { onPrefsChange({ compareView: v }); }}
+                      >
+                        {v === "split" ? "Split" : "Single"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {compareView === "single" && (
+                  <div className="px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wide">Side <span className="normal-case opacity-50">· Tab</span></p>
+                    <div className="flex items-center rounded overflow-hidden border border-border text-[11px] font-medium">
+                      {(["before", "after"] as const).map((side) => (
+                        <button
+                          key={side}
+                          className={`flex-1 px-2 py-1 transition-colors ${activeSide === side ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                          onClick={() => setActiveSide(side)}
+                        >
+                          {side === "before" ? "Before" : "After"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Click-away to close menu */}
+          {compareMenuOpen && (
+            <div className="absolute inset-0 z-10" onClick={() => setCompareMenuOpen(false)} />
+          )}
         </div>
       ) : (
         <div className="flex-1 relative overflow-hidden flex">
@@ -301,5 +364,14 @@ export function AnnotatorApp() {
 
       {hotkeysOpen && <HotkeysHelp onClose={() => setHotkeysOpen(false)} />}
     </div>
+  );
+}
+
+function SplitIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+    </svg>
   );
 }

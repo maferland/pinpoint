@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { cleanup, render } from "@testing-library/react";
-import { isEditableTarget } from "./annotator.tsx";
+import { isEditableTarget } from "./dom-utils.ts";
 
 afterEach(() => {
   cleanup();
