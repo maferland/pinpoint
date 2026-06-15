@@ -330,7 +330,11 @@ export function CanvasLayer({
   return (
     <div
       className="flex-1 relative overflow-hidden"
-      style={{ backgroundColor: "hsl(var(--canvas-letterbox))" }}
+      style={{
+        backgroundColor: "hsl(var(--canvas-letterbox))",
+        backgroundImage: "radial-gradient(circle, hsl(var(--canvas-dot)) 1px, transparent 1px)",
+        backgroundSize: "20px 20px",
+      }}
     >
       <div
         ref={viewportRef}

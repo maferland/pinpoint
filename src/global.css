@@ -34,6 +34,7 @@ html, body {
   --border: 220 12% 14%;
   --radius: .5rem;
   --canvas-letterbox: 220 16% 5%;
+  --canvas-dot: 220 16% 18%;
   --surface-hover: 220 12% 12%;
   --surface-active: 220 12% 14%;
 }
@@ -56,6 +57,7 @@ html, body {
   --destructive: 0 72% 51%;
   --border: 220 14% 88%;
   --canvas-letterbox: 220 10% 88%;
+  --canvas-dot: 220 10% 74%;
   --surface-hover: 220 14% 94%;
   --surface-active: 220 14% 90%;
 }
