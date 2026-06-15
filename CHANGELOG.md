@@ -1,3 +1,8 @@
+## [v0.10.0]
+
+- **Single-image compare mode.** Comparison slots now have a floating menu button (top-right) to toggle between split and single view. Single mode shows one full-width image at a time — click Before/After in the menu or press Tab to flip. Press S to toggle the mode without touching the mouse. Preference is saved across sessions.
+- **Dot grid on the canvas background.** The letterbox area now has a subtle dot pattern so floating UI reads as app chrome rather than blending into the screenshot.
+
 ## [v0.9.0]
 
 - **Mix comparisons and standalone images in one session.** `--pair before after` (repeatable) creates side-by-side Before/After slots; positional args stay as normal single-image slots. One thumbnail strip, arrow key navigation across everything. `--compare` still works as an alias for a single pair.
