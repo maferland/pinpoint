@@ -95,7 +95,7 @@ function Hero() {
         </h1>
 
         <p className="text-[19px] text-muted max-w-[580px] mx-auto mb-10 leading-relaxed">
-          Click to drop pins, drag to draw boxes, type comments. The agent picks up structured coordinates and works each annotation as a discrete fix.
+          Drop pins, draw regions, type what's wrong. The agent reads your annotations as percentage coordinates and works through each one.
         </p>
 
         {/* CTA row */}
@@ -163,15 +163,15 @@ function HowItWorks() {
   const STEPS = [
     {
       title: "The agent takes a screenshot",
-      body: "Of whatever it's building — a page in your dev server, a Storybook story, an iOS simulator. Anywhere with pixels.",
+      body: "Of whatever it's building. A page in your dev server, a Storybook story, an iOS simulator.",
     },
     {
       title: "You pin what's wrong",
-      body: "Click to drop a pin, drag to draw a region, type your comment. Hit Send when you're done.",
+      body: "Click to drop a pin, drag to draw a region, type your comment. Hit Send.",
     },
     {
       title: "The agent fixes what you pointed at",
-      body: "Each pin becomes a discrete task. The agent works through them and asks for another round when it's ready.",
+      body: "Each pin becomes a task. The agent works through them and asks for another round when it's done.",
     },
   ];
 
@@ -212,7 +212,7 @@ function JsonPayload() {
 }`;
 
   return (
-    <Section title="What Pinpoint sends back" lede="Percentage-based coordinates — survives any resolution.">
+    <Section title="What Pinpoint sends back" lede="Coordinates as percentages, so they survive any screen size or resolution.">
       <div
         className="rounded-[10px] border border-border overflow-hidden"
         style={{ backgroundColor: "var(--bg2)" }}
@@ -240,7 +240,7 @@ function Agents() {
     },
     {
       title: "Any MCP agent",
-      body: "The install registers an MCP server — any MCP-capable agent can drive Pinpoint inline.",
+      body: "The install registers an MCP server. Any MCP-capable agent can use it directly.",
       code: undefined,
     },
     {
@@ -280,13 +280,13 @@ function Agents() {
 
 function Handoff() {
   return (
-    <Section id="handoff" title="Hand it off. Get it back." lede="A review packages into a .pinpoint.zip. Send it to a designer, PM, or teammate — they add pins, send it back, you re-import.">
+    <Section id="handoff" title="Hand it off. Get it back." lede="A review exports as a .pinpoint.zip. Send it to a designer, PM, or teammate. They add pins and send it back; you re-import.">
       {/* Merge banner */}
       <div
         className="flex items-center justify-between gap-4 px-5 py-4 rounded-[12px] border mb-8"
         style={{ backgroundColor: "var(--accent-soft)", borderColor: "var(--accent)" }}
       >
-        <p className="text-[14px] text-txt font-medium">Pins merge straight back — no manual reconciliation.</p>
+        <p className="text-[14px] text-txt font-medium">Their pins merge back automatically.</p>
         <Badge variant="accent">Merge-ready</Badge>
       </div>
 

@@ -20,6 +20,7 @@ function moveLandingHtml(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), moveLandingHtml()],
+  publicDir: path.resolve(__dirname, "site"),
   build: {
     rollupOptions: {
       input: path.resolve(__dirname, "src/landing.html"),
