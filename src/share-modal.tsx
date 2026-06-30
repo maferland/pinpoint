@@ -13,7 +13,6 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
   const [linkOpen, setLinkOpen] = useState(true);
   const relayUrl = `localhost:7391/r/${reviewId.slice(0, 5)}`;
 
-  // Parse context for the review context card
   let ctxEntries: [string, string][] = [];
   if (context) {
     try {
@@ -76,7 +75,7 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
             </p>
           </div>
 
-          {/* "Anyone with the link" toggle */}
+          {/* Toggle */}
           <div className="flex items-center justify-between gap-3 py-3 border-t border-b border-border">
             <div>
               <p className="text-[13px] font-medium text-txt">Anyone with the link can add pins</p>
@@ -85,16 +84,7 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
             <Toggle checked={linkOpen} onChange={setLinkOpen} />
           </div>
 
-          {/* TODO note — open question #1 */}
-          <div
-            className="px-3 py-2.5 rounded-[8px] border border-dashed border-border text-[12px] text-faint"
-          >
-            {/* TODO #1 — Relay transport: local relay + optional tunnel, à la plannotator. No accounts by design. */}
-            <span className="font-semibold text-muted">Direction · needs research</span>
-            {" "}— local relay over hosted (no accounts). Tunnel handshake for off-network reviewers is a stub.
-          </div>
-
-          {/* Review context */}
+          {/* Review context — only when present */}
           {ctxEntries.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-[11px] font-semibold text-faint uppercase tracking-widest">Review context</p>
@@ -108,33 +98,6 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
               </div>
             </div>
           )}
-
-          {/* Collaborator presence (stubbed) */}
-          <div className="flex items-center gap-3">
-            <div className="flex -space-x-2">
-              <Avatar color="#5b6cff" initials="D" />
-              <Avatar color="#e0524d" initials="P" />
-            </div>
-            <p className="text-[12px] text-muted">Dana and Priya are viewing now</p>
-          </div>
-
-          {/* Merge banner */}
-          <div
-            className="flex items-center justify-between gap-3 px-4 py-3 rounded-[10px]"
-            style={{ backgroundColor: "var(--accent-soft)", border: "1px solid var(--accent)" }}
-          >
-            <p className="text-[12px] text-txt">
-              {/* TODO #3 — Merge semantics: collaborator pins merge back into owner session */}
-              4 new pins from collaborators are ready to merge
-            </p>
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => { onClose(); onToast("Merge not yet implemented — open question #3."); }}
-            >
-              Merge
-            </Button>
-          </div>
         </div>
 
         {/* Footer */}
@@ -150,16 +113,5 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
         </div>
       </div>
     </Modal>
-  );
-}
-
-function Avatar({ color, initials }: { color: string; initials: string }) {
-  return (
-    <div
-      className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-white text-[11px] font-bold border-2"
-      style={{ backgroundColor: color, borderColor: "var(--surface)" }}
-    >
-      {initials}
-    </div>
   );
 }
