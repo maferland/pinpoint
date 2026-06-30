@@ -38,8 +38,11 @@ function Nav({ theme, onThemeToggle }: { theme: "dark" | "light"; onThemeToggle:
     >
       <div className="max-w-[920px] mx-auto px-6 flex items-center justify-between h-14">
         <a href="/" className="flex items-center gap-2.5 no-underline">
-          <div className="w-[10px] h-[10px] rounded-full" style={{ backgroundColor: "var(--accent)" }} />
-          <span className="font-mono text-[13px] font-semibold text-txt tracking-tight">pinpoint</span>
+          <div
+            className="rounded-full shrink-0"
+            style={{ width: 11, height: 11, backgroundColor: "var(--accent)", boxShadow: "0 0 0 3px var(--accent-soft)" }}
+          />
+          <span className="font-mono font-semibold text-txt" style={{ fontSize: 15, letterSpacing: "-0.4px" }}>pinpoint</span>
         </a>
         <nav className="flex items-center gap-5">
           <NavLink href="#how">How it works</NavLink>
@@ -129,11 +132,13 @@ function Hero() {
               </button>
             ))}
           </div>
-          <div className="relative px-4 py-3.5">
+          <div className="relative px-4 py-3.5 pr-10">
             <pre className="font-mono text-[13px] text-txt leading-relaxed whitespace-pre-wrap m-0">
               {tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD}
             </pre>
-            <CopyButton text={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} />
+            <div className="absolute top-2.5 right-2.5">
+              <CopyButton text={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} />
+            </div>
           </div>
         </div>
 
@@ -199,6 +204,16 @@ function HowItWorks() {
 
 /* ── JSON payload ────────────────────────────────────────────────────── */
 
+function JsonHighlight({ code }: { code: string }) {
+  // Simple manual highlight: keys in agent-blue, strings in green, numbers in accent-red
+  const html = code
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/("[\w]+")\s*:/g, `<span style="color:var(--agent)">$1</span>:`)
+    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, (m, s) => m.replace(s, `<span style="color:var(--good)">${s}</span>`))
+    .replace(/:\s*(\d+\.?\d*)/g, (m, n) => m.replace(n, `<span style="color:var(--accent)">${n}</span>`));
+  return <pre className="font-mono text-[13px] text-muted leading-relaxed px-5 py-5 m-0" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
 function JsonPayload() {
   const sample = `{
   "annotations": [
@@ -217,13 +232,10 @@ function JsonPayload() {
         className="rounded-[10px] border border-border overflow-hidden"
         style={{ backgroundColor: "var(--bg2)" }}
       >
-        <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-          <span className="font-mono text-[11px] text-faint tracking-widest uppercase">annotations.json</span>
-          <CopyButton text={sample} />
+        <div className="px-5 py-2.5 border-b border-border">
+          <span className="font-mono text-[10px] text-faint tracking-widest uppercase">annotations.json</span>
         </div>
-        <pre className="font-mono text-[13px] text-muted leading-relaxed px-4 py-4 m-0 overflow-x-auto">
-          {sample}
-        </pre>
+        <JsonHighlight code={sample} />
       </div>
     </Section>
   );
@@ -236,7 +248,7 @@ function Agents() {
     {
       title: "Claude Code",
       body: "Slash command, no setup beyond install.",
-      code: "/pinpoint:review screenshot.png",
+      code: "/pinpoint:review",
     },
     {
       title: "Any MCP agent",
@@ -245,8 +257,8 @@ function Agents() {
     },
     {
       title: "Direct CLI",
-      body: "Spawns the server, opens the browser, blocks until you hit Send, prints JSON to stdout.",
-      code: 'pinpoint review screenshot.png \\\n  --context "Login page changes"',
+      body: "Spawns the server, opens the browser, blocks on Send, prints JSON to stdout.",
+      code: "pinpoint review screenshot.png",
     },
   ];
 
@@ -263,8 +275,8 @@ function Agents() {
             <p className="text-[13px] text-muted leading-relaxed flex-1">{c.body}</p>
             {c.code && (
               <pre
-                className="font-mono text-[12px] text-muted rounded-[7px] border border-border px-3 py-2 m-0 overflow-x-auto"
-                style={{ backgroundColor: "var(--bg2)" }}
+                className="font-mono text-[12px] text-txt rounded-[7px] border border-border px-3 py-2.5 m-0 overflow-hidden whitespace-pre-wrap"
+                style={{ backgroundColor: "var(--bg)" }}
               >
                 {c.code}
               </pre>
@@ -281,15 +293,6 @@ function Agents() {
 function Handoff() {
   return (
     <Section id="handoff" title="Hand it off. Get it back." lede="A review exports as a .pinpoint.zip. Send it to a designer, PM, or teammate — they add pins and send it back.">
-      {/* Merge banner */}
-      <div
-        className="flex items-center justify-between gap-4 px-5 py-4 rounded-[12px] border mb-8"
-        style={{ backgroundColor: "var(--accent-soft)", borderColor: "var(--accent)" }}
-      >
-        <p className="text-[14px] text-txt font-medium">Their pins merge back automatically.</p>
-        <Badge variant="accent">Merge-ready</Badge>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card title="Export">
           <p className="text-[13px] text-muted leading-relaxed mb-3">Click the download icon in the toolbar, or from the command line:</p>

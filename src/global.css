@@ -52,12 +52,17 @@
 }
 
 html, body {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   background-color: var(--bg);
   color: var(--text);
+}
+
+/* Annotator is a full-viewport app — clip document scroll so only internal
+   viewports scroll. Landing page overrides this via body.landing. */
+body:not(.landing) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* ── Semantic color utilities ────────────────────────────────────────── */

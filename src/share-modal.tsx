@@ -62,10 +62,7 @@ export function ShareModal({ reviewId, onClose, onToast, onExport }: ShareModalP
 
           {/* Toggle */}
           <div className="flex items-center justify-between gap-3 py-3 border-t border-b border-border">
-            <div>
-              <p className="text-[13px] font-medium text-txt">Anyone with the link can add pins</p>
-              <p className="text-[11px] text-faint mt-0.5">Collaborators can annotate and their pins merge back</p>
-            </div>
+            <p className="text-[13px] font-medium text-txt">Anyone with the link can add pins</p>
             <Toggle checked={linkOpen} onChange={setLinkOpen} />
           </div>
 

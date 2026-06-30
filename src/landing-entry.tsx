@@ -7,6 +7,9 @@ const saved = localStorage.getItem("pinpoint-theme");
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 const dark = saved === "dark" || (saved == null && prefersDark);
 document.documentElement.dataset.theme = dark ? "dark" : "light";
+document.documentElement.style.scrollBehavior = "smooth";
+document.documentElement.style.scrollPaddingTop = "64px";
+document.body.classList.add("landing");
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
