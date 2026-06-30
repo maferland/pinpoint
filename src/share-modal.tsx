@@ -101,7 +101,7 @@ export function ShareModal({ reviewId, context, onClose, onToast, onExport }: Sh
         </div>
 
         {/* Footer */}
-        <div className="px-6 pb-5 pt-1 flex items-center justify-between gap-3 border-t border-border">
+        <div className="px-6 py-4 flex items-center justify-between gap-3 border-t border-border">
           <p className="text-[12px] text-faint">Prefer a file?</p>
           <Button
             variant="surface"

@@ -97,10 +97,11 @@ export function Toolbar({
       {/* Logo */}
       <div className="flex items-center gap-2 shrink-0">
         <div
-          className="w-[10px] h-[10px] rounded-full"
+          className="rounded-full shrink-0"
           style={{
+            width: 11, height: 11,
             backgroundColor: "var(--accent)",
-            boxShadow: "0 0 0 2.5px var(--surface), 0 0 0 4px var(--accent)",
+            boxShadow: "0 0 0 3px var(--accent-soft)",
           }}
         />
         <span className="font-mono text-[13px] font-semibold text-txt tracking-tight">
