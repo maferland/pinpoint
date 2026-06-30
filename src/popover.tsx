@@ -138,12 +138,13 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
           >
             Delete
           </button>
-          <span className="flex-1 text-center text-[10px] text-faint opacity-60">⌘↵</span>
+          <div className="flex-1" />
           <button
-            className="text-[12px] font-medium text-accent hover:opacity-80 transition-opacity"
+            className="flex items-center gap-1.5 text-[12px] font-medium text-accent hover:opacity-80 transition-opacity"
             onClick={() => { flush(); onClose(); }}
           >
             Save
+            <span className="text-[10px] text-faint font-normal opacity-60">⌘↵</span>
           </button>
         </div>
       </div>

@@ -364,17 +364,30 @@ export function CanvasLayer({
             )}
 
             {imgLoaded && selectedAnn && layout.drawW > 0 && (() => {
-              const POPOVER_W = 280;
-              const pinPx = (selectedAnn.pin.x / 100) * layout.drawW;
-              const popoverX = pinPx + PIN_RADIUS + 8 + POPOVER_W > layout.drawW
-                ? Math.max(0, pinPx - PIN_RADIUS - 8 - POPOVER_W)
-                : pinPx + PIN_RADIUS + 8;
+              const POPOVER_W = 300;
+              const isRealBox = selectedAnn.box &&
+                (selectedAnn.box.width > CLICK_BOX_SIZE + 1 || selectedAnn.box.height > CLICK_BOX_SIZE + 1);
+
+              // For boxes: anchor to the right edge of the box so the popover doesn't
+              // sit on top of the badge at the top-left corner.
+              const anchorX = isRealBox && selectedAnn.box
+                ? ((selectedAnn.box.x + selectedAnn.box.width) / 100) * layout.drawW
+                : (selectedAnn.pin.x / 100) * layout.drawW;
+              const anchorY = isRealBox && selectedAnn.box
+                ? (selectedAnn.box.y / 100) * layout.drawH
+                : (selectedAnn.pin.y / 100) * layout.drawH;
+
+              const gap = 10;
+              const popoverX = anchorX + gap + POPOVER_W > layout.drawW
+                ? Math.max(0, anchorX - gap - POPOVER_W)
+                : anchorX + gap;
+
               return (
                 <Popover
                   key={selectedAnn.id}
                   annotation={selectedAnn}
                   x={popoverX}
-                  y={(selectedAnn.pin.y / 100) * layout.drawH - 10}
+                  y={Math.max(0, anchorY - 10)}
                   onUpdate={(updates) => onUpdate(selectedAnn.id, updates)}
                   onDelete={() => onDelete(selectedAnn.id)}
                   onClose={() => onSelect(null)}
