@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { finalizeReview } from "./api.ts";
 import type { Preferences } from "./api.ts";
 import { IconButton, Button } from "./ui/index.tsx";
+import { SettingsPopover } from "./settings-popover.tsx";
 
 interface ToolbarProps {
   reviewId: string;
@@ -14,6 +15,8 @@ interface ToolbarProps {
   onFinalized: () => void;
   onShowWelcome: () => void;
   onShowShare: () => void;
+  prefsLoaded: boolean;
+  onPrefsChange: (patch: Partial<Preferences>) => void;
   onToast: (msg: string) => void;
   onBeforeExport: () => Promise<void>;
 }
@@ -31,9 +34,12 @@ export function Toolbar({
   onShowShare,
   onToast,
   onBeforeExport,
+  prefsLoaded,
+  onPrefsChange,
 }: ToolbarProps) {
   const [doneState, setDoneState] = useState<"idle" | "sending" | "sent">("idle");
   const [countdown, setCountdown] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (doneState !== "sent" || !prefs.autoCloseAfterDone) return;
@@ -92,7 +98,10 @@ export function Toolbar({
       <div className="flex items-center gap-2 shrink-0">
         <div
           className="w-[10px] h-[10px] rounded-full"
-          style={{ backgroundColor: "var(--accent)" }}
+          style={{
+            backgroundColor: "var(--accent)",
+            boxShadow: "0 0 0 2.5px var(--surface), 0 0 0 4px var(--accent)",
+          }}
         />
         <span className="font-mono text-[13px] font-semibold text-txt tracking-tight">
           pinpoint
@@ -133,6 +142,25 @@ export function Toolbar({
       <IconButton onClick={onThemeToggle} title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
         {theme === "dark" ? <SunIcon /> : <MoonIcon />}
       </IconButton>
+
+      <div className="relative">
+        <IconButton
+          active={settingsOpen}
+          onClick={() => setSettingsOpen((v) => !v)}
+          disabled={!prefsLoaded}
+          title="Settings"
+          aria-label="Settings"
+        >
+          <GearIcon />
+        </IconButton>
+        {settingsOpen && (
+          <SettingsPopover
+            prefs={prefs}
+            onChange={onPrefsChange}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </div>
 
       <IconButton onClick={handleExport} title="Export .pinpoint.zip" aria-label="Export session">
         <DownloadIcon />
@@ -258,6 +286,15 @@ function PlaneIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   );
 }

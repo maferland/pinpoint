@@ -215,6 +215,8 @@ export function AnnotatorApp() {
         theme={theme}
         onThemeToggle={() => setTheme((t) => t === "dark" ? "light" : "dark")}
         prefs={prefs}
+        prefsLoaded={prefsLoaded}
+        onPrefsChange={onPrefsChange}
         onFinalized={() => setFinalized(true)}
         onShowWelcome={() => setShowWelcome(true)}
         onShowShare={() => setShowShare(true)}

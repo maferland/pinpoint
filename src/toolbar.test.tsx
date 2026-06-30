@@ -25,6 +25,8 @@ function renderToolbar(overrides: { onBeforeExport?: () => Promise<void> } = {})
       theme="light"
       onThemeToggle={() => {}}
       prefs={DEFAULT_PREFS}
+      prefsLoaded={true}
+      onPrefsChange={() => {}}
       onFinalized={() => {}}
       onShowWelcome={() => {}}
       onShowShare={() => {}}
