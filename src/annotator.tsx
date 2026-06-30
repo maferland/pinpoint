@@ -316,7 +316,6 @@ export function AnnotatorApp() {
       {showShare && reviewId && (
         <ShareModal
           reviewId={reviewId}
-          context={review?.context}
           onClose={() => setShowShare(false)}
           onToast={setToast}
           onExport={handleExport}
