@@ -530,10 +530,8 @@ function AnnotationOverlay({
                   top: `${ann.pin.y}%`,
                   width: PIN_RADIUS * 2,
                   height: PIN_RADIUS * 2,
-                  /* pp-drop keyframes include translate(-50%,-50%); non-animated pins use margin */
-                  ...(isNew
-                    ? {}
-                    : { marginLeft: -PIN_RADIUS, marginTop: -PIN_RADIUS }),
+                  /* pp-drop bakes translate(-50%,-50%) into keyframes; settled pins use the same transform so layout stays consistent */
+                  transform: "translate(-50%,-50%)",
                   borderRadius: "50%",
                   backgroundColor: "var(--accent)",
                   border: "2px solid white",

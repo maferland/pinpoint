@@ -93,7 +93,7 @@ html, body {
 
 /* ── Animations ──────────────────────────────────────────────────────── */
 
-/* Annotation pin drop — spring, ends fully visible */
+/* Pin drop — all keyframes include translate(-50%,-50%) to match settled pin's transform */
 @keyframes pp-drop {
   0%   { opacity: .2; transform: translate(-50%,-50%) scale(.2); }
   70%  { opacity: 1;  transform: translate(-50%,-50%) scale(1.15); }

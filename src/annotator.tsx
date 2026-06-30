@@ -234,39 +234,9 @@ export function AnnotatorApp() {
         }}
       />
 
-      {/* Filmstrip — shown when more than one slot */}
-      {slots.length > 1 && reviewId && (
-        <div
-          className="flex items-center gap-3 px-4 bg-surface border-b border-border shrink-0 overflow-x-auto"
-          style={{ height: 102 }}
-        >
-          <span className="font-mono text-[10px] font-semibold text-faint tracking-widest uppercase shrink-0">
-            Screens
-          </span>
-          {slots.map((slot, si) => {
-            const annCount = slot.type === "single"
-              ? annotations.filter((a) => a.imageIndex === slot.imageIndex).length
-              : annotations.filter((a) => a.imageIndex === slot.beforeIndex || a.imageIndex === slot.afterIndex).length;
-            const img = review!.images[slot.type === "single" ? slot.imageIndex : slot.beforeIndex];
-            return (
-              <Thumbnail
-                key={si}
-                src={imageUrl(reviewId, slot.type === "single" ? slot.imageIndex : slot.beforeIndex)}
-                srcAfter={slot.type === "compare" ? imageUrl(reviewId, slot.afterIndex) : undefined}
-                filename={img?.path}
-                index={si}
-                active={si === activeSlotIndex}
-                annotationCount={annCount}
-                onClick={() => { setActiveSlotIndex(si); setSelectedId(null); }}
-              />
-            );
-          })}
-        </div>
-      )}
-
       {/* Main content: canvas + rail */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Canvas area */}
+        {/* Canvas area + filmstrip column */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {activeSlot?.type === "compare" && reviewId ? (
             <CompareCanvas
@@ -296,6 +266,36 @@ export function AnnotatorApp() {
               onUpdate={updateAnnotation}
               onDelete={removeAnnotation}
             />
+          )}
+
+          {/* Filmstrip — bottom of workspace column, visible when more than one slot */}
+          {slots.length > 1 && reviewId && (
+            <div
+              className="flex items-center gap-3 px-4 bg-surface border-t border-border shrink-0 overflow-x-auto"
+              style={{ height: 102 }}
+            >
+              <span className="font-mono text-[10px] font-semibold text-faint tracking-widest uppercase shrink-0">
+                Screens
+              </span>
+              {slots.map((slot, si) => {
+                const annCount = slot.type === "single"
+                  ? annotations.filter((a) => a.imageIndex === slot.imageIndex).length
+                  : annotations.filter((a) => a.imageIndex === slot.beforeIndex || a.imageIndex === slot.afterIndex).length;
+                const img = review!.images[slot.type === "single" ? slot.imageIndex : slot.beforeIndex];
+                return (
+                  <Thumbnail
+                    key={si}
+                    src={imageUrl(reviewId, slot.type === "single" ? slot.imageIndex : slot.beforeIndex)}
+                    srcAfter={slot.type === "compare" ? imageUrl(reviewId, slot.afterIndex) : undefined}
+                    filename={img?.path}
+                    index={si}
+                    active={si === activeSlotIndex}
+                    annotationCount={annCount}
+                    onClick={() => { setActiveSlotIndex(si); setSelectedId(null); }}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
 
