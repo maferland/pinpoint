@@ -20,7 +20,9 @@
   },
   "scripts": {
     "build": "bun scripts/build.mjs",
+    "build:site": "vite build --config vite.site.config.ts",
     "dev": "bun --watch src/main.ts",
+    "dev:site": "vite --config vite.site.config.ts src/landing.html",
     "test": "bun test",
     "test:e2e": "bun run build && playwright test",
     "test:all": "bun run test && bun run test:e2e",

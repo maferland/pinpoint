@@ -10,11 +10,6 @@ interface PopoverProps {
   onClose: () => void;
 }
 
-/**
- * Single source of truth for save: a ref-based flush that compares latest
- * draft against latest committed comment and calls onUpdate if they differ.
- * Used by ⌘Enter, blur-outside-popover, and unmount cleanup.
- */
 function useFlushSave(
   draft: string,
   committed: string,
@@ -41,8 +36,6 @@ function useFlushSave(
 
   const cancel = useCallback(() => { cancelRef.current = true; }, []);
 
-  // Save on unmount — covers click-outside, pin switch, image switch.
-  // A pin with no comment carries no information, so drop it on close.
   useEffect(() => () => {
     flush();
     const finalComment = cancelRef.current ? committedRef.current : draftRef.current;
@@ -57,6 +50,7 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNew = !annotation.comment;
   const { flush, cancel } = useFlushSave(comment, annotation.comment, onUpdate, onDelete);
+  const isBox = annotation.box && (annotation.box.width > 7 || annotation.box.height > 7);
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);
@@ -95,36 +89,63 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
 
   return (
     <div
-      className="absolute z-50 animate-fade-in"
-      style={{ left: x, top: y, width: 280 }}
+      className="absolute z-50 animate-pp-pop"
+      style={{ left: x, top: y, width: 300 }}
       data-popover
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className="bg-popover border border-border rounded-lg shadow-xl backdrop-blur-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-          <span className="text-[11px] font-bold text-primary tabular-nums">#{annotation.number}</span>
-          <div className="flex-1" />
-          <button
-            className="text-[11px] text-muted-foreground hover:text-destructive transition-colors"
-            onClick={onDelete}
+      <div
+        className="rounded-[12px] border border-border overflow-hidden"
+        style={{
+          backgroundColor: "var(--surface)",
+          boxShadow: "var(--shadow)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
+          <span
+            className="w-[20px] h-[20px] flex items-center justify-center text-[10px] font-bold text-white rounded-full shrink-0"
+            style={{ backgroundColor: "var(--accent)" }}
           >
-            Delete
-          </button>
+            {annotation.number}
+          </span>
+          <span className="font-mono text-[10px] font-semibold text-faint tracking-wider uppercase">
+            {isBox ? "Region" : "Pin"}
+          </span>
         </div>
-        <div className="px-3 py-2">
+
+        {/* Textarea */}
+        <div className="px-3 pt-2.5 pb-2">
           <textarea
             ref={textareaRef}
             data-testid="popover-textarea"
-            className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground resize-none outline-none min-h-[48px] leading-relaxed"
-            rows={2}
-            placeholder="Type a note..."
+            className="w-full bg-transparent text-[13px] text-txt placeholder:text-faint resize-none outline-none leading-relaxed"
+            style={{ minHeight: 74 }}
+            placeholder="Describe what to change…"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
           />
-          <p className="text-[9px] text-muted-foreground text-right mt-1 opacity-40">⌘Enter to save · Esc to cancel</p>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center px-3 pb-2.5 gap-2">
+          <button
+            className="text-[12px] text-faint hover:text-accent transition-colors"
+            onClick={onDelete}
+          >
+            Delete
+          </button>
+          <div className="flex-1" />
+          <button
+            className="flex items-center gap-1.5 text-[12px] font-medium text-accent hover:opacity-80 transition-opacity"
+            onClick={() => { flush(); onClose(); }}
+          >
+            Save
+            <span className="text-[10px] text-faint font-normal opacity-60">⌘↵</span>
+          </button>
         </div>
       </div>
     </div>

@@ -28,10 +28,9 @@ function renderToolbar(overrides: { onBeforeExport?: () => Promise<void> } = {})
       prefsLoaded={true}
       onPrefsChange={() => {}}
       onFinalized={() => {}}
-      hasDetails={false}
-      detailsVisible={false}
-      onToggleDetails={() => {}}
-      onShowHotkeys={() => {}}
+      onShowWelcome={() => {}}
+      onShowShare={() => {}}
+      onToast={() => {}}
       onBeforeExport={onBeforeExport}
     />
   );
@@ -50,8 +49,6 @@ describe("Toolbar export button", () => {
       });
     });
 
-    // Intercept the synthetic <a>.click() so we can prove the click only fires
-    // after the flush resolves.
     const originalClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {
       flushed.push("download-clicked");
@@ -61,11 +58,8 @@ describe("Toolbar export button", () => {
       renderToolbar({ onBeforeExport });
       await user.click(screen.getByLabelText("Export session"));
 
-      // The click handler has fired, the flush has started, but resolve has
-      // not yet been called — so no download should have happened.
       expect(flushed).toEqual(["flush-started"]);
       resolveFlush!();
-      // Yield to the microtask queue so the awaited promise can settle.
       await new Promise((r) => setTimeout(r, 0));
       expect(flushed).toEqual(["flush-started", "flush-done", "download-clicked"]);
       expect(onBeforeExport).toHaveBeenCalledTimes(1);
@@ -87,7 +81,6 @@ describe("Toolbar export button", () => {
       renderToolbar({ onBeforeExport: fail });
       await user.click(screen.getByLabelText("Export session"));
       await new Promise((r) => setTimeout(r, 0));
-      // Flush errors are logged but should not block the export.
       expect(clicked).toHaveBeenCalled();
     } finally {
       HTMLAnchorElement.prototype.click = originalClick;

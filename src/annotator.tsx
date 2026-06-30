@@ -3,17 +3,21 @@ import type { PinpointAnnotation, PinpointReview } from "./types.ts";
 import { resolveSlots } from "./types.ts";
 import type { Preferences } from "./api.ts";
 import { Toolbar } from "./toolbar.tsx";
+import { WorkspaceSubbar } from "./workspace-subbar.tsx";
 import { CanvasLayer } from "./canvas-layer.tsx";
-import { UpdateBanner } from "./update-banner.tsx";
+import { CompareCanvas } from "./compare-canvas.tsx";
+import { CommentsRail } from "./comments-rail.tsx";
 import { Thumbnail } from "./thumbnail.tsx";
-import { DetailsPanel } from "./details-panel.tsx";
-import { HotkeysHelp } from "./hotkeys-help.tsx";
+import { Toast } from "./toast.tsx";
+import { WelcomeModal } from "./welcome-modal.tsx";
+import { ShareModal } from "./share-modal.tsx";
+import { UpdateBanner } from "./update-banner.tsx";
 import { useIdleReminder } from "./use-idle-reminder.ts";
 import { useKeyPress } from "./use-key-press.ts";
 import {
   getPreferences,
   getReview,
-  imageUrl as buildImageUrl,
+  imageUrl,
   reviewIdFromPath,
   saveAnnotations,
   savePreferences,
@@ -32,28 +36,29 @@ export function AnnotatorApp() {
   const [review, setReview] = useState<PinpointReview | null>(null);
   const [annotations, setAnnotations] = useState<PinpointAnnotation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);
   const [activeSide, setActiveSide] = useState<"before" | "after">("before");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [finalized, setFinalized] = useState(false);
-  const [detailsHidden, setDetailsHidden] = useState(false);
-  const [hotkeysOpen, setHotkeysOpen] = useState(false);
-  const [compareMenuOpen, setCompareMenuOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const justAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(justAddedTimer.current), []);
 
   useEffect(() => {
-    document.documentElement.className = theme;
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   useEffect(() => {
     if (!reviewId) return;
     getReview(reviewId)
-      .then((data) => {
-        setReview(data);
-        setAnnotations(data.annotations);
-      })
+      .then((data) => { setReview(data); setAnnotations(data.annotations); })
       .catch((err) => console.error("Failed to load review:", err));
   }, [reviewId]);
 
@@ -84,10 +89,16 @@ export function AnnotatorApp() {
   const activeSlot = slots[activeSlotIndex] ?? null;
   const compareView = prefs.compareView ?? "split";
 
-  useEffect(() => { setActiveSide("before"); setCompareMenuOpen(false); }, [activeSlotIndex]);
+  useEffect(() => { setActiveSide("before"); }, [activeSlotIndex]);
+
+  const activeFilename = (() => {
+    if (!activeSlot || !review) return undefined;
+    if (activeSlot.type === "single") return review.images[activeSlot.imageIndex]?.path?.split("/").pop();
+    return review.images[activeSlot.beforeIndex]?.path?.split("/").pop();
+  })();
 
   const currentImageUrl = review && activeSlot?.type === "single" && reviewId
-    ? buildImageUrl(reviewId, activeSlot.imageIndex)
+    ? imageUrl(reviewId, activeSlot.imageIndex)
     : "";
 
   const activeAnnotations = activeSlot?.type === "single"
@@ -135,6 +146,9 @@ export function AnnotatorApp() {
       const updated = [...annotations, ann];
       setAnnotations(updated);
       setSelectedId(ann.id);
+      setJustAddedId(ann.id);
+      clearTimeout(justAddedTimer.current);
+      justAddedTimer.current = setTimeout(() => setJustAddedId(null), 400);
       persistAnnotations(updated);
     },
     [annotations, activeSlot, persistAnnotations]
@@ -161,9 +175,19 @@ export function AnnotatorApp() {
     [annotations, selectedId, persistAnnotations]
   );
 
+  const handleExport = useCallback(async () => {
+    try { await flushAnnotations(); } catch (err) { console.error("Flush before export:", err); }
+    const a = document.createElement("a");
+    a.href = `/api/review/${reviewId}/export`;
+    a.download = `${reviewId}.pinpoint.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }, [reviewId, flushAnnotations]);
+
   useKeyPress("Escape", () => setSelectedId(null));
   useKeyPress(["Delete", "Backspace"], () => removeAnnotation(selectedId!), { when: !!selectedId });
-  useKeyPress("?", () => setHotkeysOpen((v) => !v));
+  useKeyPress("?", () => setShowWelcome((v) => !v));
   useKeyPress("Tab", (e) => { e.preventDefault(); setActiveSide((s) => s === "before" ? "after" : "before"); }, {
     when: activeSlot?.type === "compare" && compareView === "single",
   });
@@ -176,202 +200,134 @@ export function AnnotatorApp() {
 
   if (!reviewId) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background text-muted-foreground text-[13px]">
+      <div className="h-screen flex items-center justify-center bg-bg text-muted text-[13px]">
         No review ID in URL. Use create_review in Claude to start.
       </div>
     );
   }
 
-  const activeImage = activeSlot?.type === "single"
-    ? review?.images[activeSlot.imageIndex]
-    : null;
-  const activeDetails = activeImage?.details && Object.keys(activeImage.details).length > 0
-    ? activeImage.details
-    : null;
-  const detailsVisible = !!activeDetails && !detailsHidden;
+  const isCompare = activeSlot?.type === "compare";
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen flex flex-col bg-bg overflow-hidden">
       <Toolbar
         reviewId={reviewId}
         annotationCount={annotations.length}
         context={review?.context}
+        activeFilename={activeFilename}
         theme={theme}
         onThemeToggle={() => setTheme((t) => t === "dark" ? "light" : "dark")}
         prefs={prefs}
         prefsLoaded={prefsLoaded}
         onPrefsChange={onPrefsChange}
         onFinalized={() => setFinalized(true)}
-        hasDetails={!!activeDetails}
-        detailsVisible={detailsVisible}
-        onToggleDetails={() => setDetailsHidden((v) => !v)}
-        onShowHotkeys={() => setHotkeysOpen(true)}
+        onShowWelcome={() => setShowWelcome(true)}
+        onShowShare={() => setShowShare(true)}
+        onToast={setToast}
         onBeforeExport={flushAnnotations}
       />
 
-      {slots.length > 1 && reviewId && (
-        <div className="h-16 flex items-center gap-2 px-4 bg-card border-b border-border shrink-0 overflow-x-auto">
-          {slots.map((slot, si) => {
-            const annCount = slot.type === "single"
-              ? annotations.filter((a) => a.imageIndex === slot.imageIndex).length
-              : annotations.filter((a) => a.imageIndex === slot.beforeIndex || a.imageIndex === slot.afterIndex).length;
-            const img = review!.images[slot.type === "single" ? slot.imageIndex : slot.beforeIndex];
-            return (
-              <Thumbnail
-                key={si}
-                src={buildImageUrl(reviewId, slot.type === "single" ? slot.imageIndex : slot.beforeIndex)}
-                srcAfter={slot.type === "compare" ? buildImageUrl(reviewId, slot.afterIndex) : undefined}
-                index={si}
-                active={si === activeSlotIndex}
-                annotationCount={annCount}
-                hasDetails={!!img?.details && Object.keys(img.details).length > 0}
-                onClick={() => { setActiveSlotIndex(si); setSelectedId(null); }}
-              />
-            );
-          })}
-        </div>
-      )}
+      <WorkspaceSubbar
+        filename={activeFilename ?? ""}
+        isCompare={isCompare}
+        compareView={compareView}
+        viewMode={prefs.viewMode}
+        onCompareViewChange={(v) => onPrefsChange({ compareView: v })}
+        onViewModeChange={(v) => onPrefsChange({ viewMode: v })}
+      />
 
-      {activeSlot?.type === "compare" && reviewId ? (
-        <div className="flex-1 overflow-hidden relative">
-          {/* Canvas area */}
-          {compareView === "split" ? (
-            <div className="absolute inset-0 flex">
-              {([
-                { label: "Before", imgIndex: activeSlot.beforeIndex },
-                { label: "After", imgIndex: activeSlot.afterIndex },
-              ] as const).map(({ label, imgIndex }, idx) => (
-                <div key={label} className="flex-1 flex flex-col overflow-hidden relative" style={idx === 0 ? { borderRight: "1px solid hsl(var(--border))" } : {}}>
-                  <div
-                    className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded text-[11px] font-semibold text-white select-none pointer-events-none"
-                    style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
-                  >
-                    {label}
-                  </div>
-                  <CanvasLayer
-                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
-                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
-                    selectedId={selectedId}
-                    viewMode={prefs.viewMode}
-                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
-                    onSelect={setSelectedId}
-                    onUpdate={updateAnnotation}
-                    onDelete={removeAnnotation}
-                  />
-                </div>
-              ))}
-            </div>
+      {/* Main content: canvas + rail */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Canvas area + filmstrip column */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Canvas wrapper — flex so CanvasLayer's flex-1 root has a flex parent to grow into */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+          {activeSlot?.type === "compare" && reviewId ? (
+            <CompareCanvas
+              activeSlot={activeSlot}
+              reviewId={reviewId}
+              annotations={annotations}
+              selectedId={selectedId}
+              justAddedId={justAddedId}
+              compareView={compareView}
+              activeSide={activeSide}
+              viewMode={prefs.viewMode}
+              onActiveSideChange={setActiveSide}
+              onBoxPlace={(x, y, w, h, imgIdx) => addAnnotation({ x, y, width: w, height: h }, imgIdx)}
+              onSelect={setSelectedId}
+              onUpdate={updateAnnotation}
+              onDelete={removeAnnotation}
+            />
           ) : (
-            <div className="absolute inset-0 flex">
-              {(() => {
-                const imgIndex = activeSide === "before" ? activeSlot.beforeIndex : activeSlot.afterIndex;
-                return (
-                  <CanvasLayer
-                    key={imgIndex}
-                    imageDataUrl={buildImageUrl(reviewId, imgIndex)}
-                    annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
-                    selectedId={selectedId}
-                    viewMode={prefs.viewMode}
-                    onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h }, imgIndex)}
-                    onSelect={setSelectedId}
-                    onUpdate={updateAnnotation}
-                    onDelete={removeAnnotation}
-                  />
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Floating compare menu button */}
-          <div className="absolute top-2 right-2 z-20" onMouseDown={(e) => e.stopPropagation()}>
-            <button
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-white transition-opacity select-none ${compareMenuOpen ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
-              style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
-              onClick={() => setCompareMenuOpen((v) => !v)}
-            >
-              <SplitIcon />
-              {compareView === "single" ? (activeSide === "before" ? "Before" : "After") : "Split"}
-            </button>
-
-            {compareMenuOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 rounded-lg border border-border shadow-xl overflow-hidden"
-                style={{ backgroundColor: "hsl(var(--popover))", minWidth: 120 }}
-              >
-                <div className="px-3 py-2 border-b border-border">
-                  <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wide">View</p>
-                  <div className="flex items-center rounded overflow-hidden border border-border text-[11px] font-medium">
-                    {(["split", "single"] as const).map((v) => (
-                      <button
-                        key={v}
-                        className={`flex-1 px-2 py-1 transition-colors ${compareView === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-                        onClick={() => { onPrefsChange({ compareView: v }); }}
-                      >
-                        {v === "split" ? "Split" : "Single"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {compareView === "single" && (
-                  <div className="px-3 py-2">
-                    <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wide">Side <span className="normal-case opacity-50">· Tab</span></p>
-                    <div className="flex items-center rounded overflow-hidden border border-border text-[11px] font-medium">
-                      {(["before", "after"] as const).map((side) => (
-                        <button
-                          key={side}
-                          className={`flex-1 px-2 py-1 transition-colors ${activeSide === side ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
-                          onClick={() => setActiveSide(side)}
-                        >
-                          {side === "before" ? "Before" : "After"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Click-away to close menu */}
-          {compareMenuOpen && (
-            <div className="absolute inset-0 z-10" onClick={() => setCompareMenuOpen(false)} />
-          )}
-        </div>
-      ) : (
-        <div className="flex-1 relative overflow-hidden flex">
-          <CanvasLayer
-            imageDataUrl={currentImageUrl}
-            annotations={activeAnnotations}
-            selectedId={selectedId}
-            viewMode={prefs.viewMode}
-            onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
-            onSelect={setSelectedId}
-            onUpdate={updateAnnotation}
-            onDelete={removeAnnotation}
-          />
-          {detailsVisible && activeDetails && (
-            <DetailsPanel
-              key={activeSlotIndex}
-              details={activeDetails}
-              imageLabel={slots.length > 1 ? `Image ${activeSlotIndex + 1}` : "Details"}
-              onClose={() => setDetailsHidden(true)}
+            <CanvasLayer
+              imageDataUrl={currentImageUrl}
+              annotations={activeAnnotations}
+              selectedId={selectedId}
+              justAddedId={justAddedId}
+              viewMode={prefs.viewMode}
+              onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
+              onSelect={setSelectedId}
+              onUpdate={updateAnnotation}
+              onDelete={removeAnnotation}
             />
           )}
+          </div>
+
+          {/* Filmstrip — always at the bottom, outside the canvas wrapper */}
+          {slots.length > 1 && reviewId && (
+            <div
+              className="flex items-center gap-3 px-4 bg-surface border-t border-border shrink-0 overflow-x-auto"
+              style={{ height: 102 }}
+            >
+              <span className="font-mono text-[10px] font-semibold text-faint tracking-widest uppercase shrink-0">
+                Screens
+              </span>
+              {slots.map((slot, si) => {
+                const annCount = slot.type === "single"
+                  ? annotations.filter((a) => a.imageIndex === slot.imageIndex).length
+                  : annotations.filter((a) => a.imageIndex === slot.beforeIndex || a.imageIndex === slot.afterIndex).length;
+                const img = review!.images[slot.type === "single" ? slot.imageIndex : slot.beforeIndex];
+                return (
+                  <Thumbnail
+                    key={si}
+                    src={imageUrl(reviewId, slot.type === "single" ? slot.imageIndex : slot.beforeIndex)}
+                    srcAfter={slot.type === "compare" ? imageUrl(reviewId, slot.afterIndex) : undefined}
+                    filename={img?.path}
+                    index={si}
+                    active={si === activeSlotIndex}
+                    annotationCount={annCount}
+                    onClick={() => { setActiveSlotIndex(si); setSelectedId(null); }}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Comments rail */}
+        <CommentsRail
+          annotations={activeAnnotations}
+          selectedId={selectedId}
+          context={review?.context}
+          onSelect={(id) => { setSelectedId(id); }}
+        />
+      </div>
 
       <UpdateBanner />
 
-      {hotkeysOpen && <HotkeysHelp onClose={() => setHotkeysOpen(false)} />}
+      {/* Overlays */}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
+      {showShare && reviewId && (
+        <ShareModal
+          reviewId={reviewId}
+          onClose={() => setShowShare(false)}
+          onToast={setToast}
+          onExport={handleExport}
+        />
+      )}
     </div>
   );
 }
 
-function SplitIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="12" y1="3" x2="12" y2="21" />
-    </svg>
-  );
-}
+

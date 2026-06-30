@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Preferences, ViewMode } from "./api.ts";
+import { SegmentedControl, Toggle } from "./ui/index.tsx";
 
 interface SettingsPopoverProps {
   prefs: Preferences;
@@ -18,9 +19,7 @@ export function SettingsPopover({ prefs, onChange, onClose }: SettingsPopoverPro
       if (e.target instanceof Node && rootRef.current.contains(e.target)) return;
       onClose();
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("mousedown", onDocMouseDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -32,40 +31,42 @@ export function SettingsPopover({ prefs, onChange, onClose }: SettingsPopoverPro
   return (
     <div
       ref={rootRef}
-      className="absolute right-2 top-12 z-50 w-64 rounded-md border border-border bg-popover text-popover-foreground shadow-lg animate-fade-in"
+      className="absolute right-0 top-[calc(100%+6px)] z-50 w-60 rounded-[12px] border border-border shadow-token animate-pp-pop"
+      style={{ backgroundColor: "var(--surface)" }}
     >
-      <div className="px-3 py-2 border-b border-border text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Settings
+      <div className="px-3 py-2 border-b border-border">
+        <p className="font-mono text-[10px] font-semibold text-faint tracking-widest uppercase">Settings</p>
       </div>
 
-      <div className="px-3 py-2.5 flex flex-col gap-3 text-[12px]">
-        <Row label="View" hint="How the screenshot fills the viewport">
-          <Segmented
+      <div className="px-3 py-3 flex flex-col gap-4">
+        <Row label="View">
+          <SegmentedControl
             value={prefs.viewMode}
-            options={[{ value: "fit", label: "Fit" }, { value: "actual", label: "Actual" }]}
-            onChange={(v) => onChange({ viewMode: v as ViewMode })}
+            options={[
+              { value: "fit", label: "Fit" },
+              { value: "actual", label: "Full size" },
+            ] as { value: ViewMode; label: string }[]}
+            onChange={(v) => onChange({ viewMode: v })}
           />
         </Row>
 
         <Toggle
-          label="Auto-close tab"
-          hint="Close this tab 3s after Done"
+          label="Auto-close tab after send"
           checked={prefs.autoCloseAfterDone}
           onChange={(v) => onChange({ autoCloseAfterDone: v })}
         />
 
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <Toggle
             label="Idle reminder"
-            hint="Beep when the review has sat untouched"
             checked={prefs.idleReminder}
             onChange={(v) => onChange({ idleReminder: v })}
           />
           {prefs.idleReminder && (
-            <div className="pl-0.5 flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">After</span>
+            <div className="flex items-center gap-2 pl-0.5">
+              <span className="text-[12px] text-muted">After</span>
               <select
-                className="text-[11px] bg-secondary text-secondary-foreground rounded px-1.5 py-0.5 border border-border"
+                className="text-[12px] text-txt rounded-[7px] px-2 py-1 border border-border bg-bg2"
                 value={prefs.idleReminderDelaySec}
                 onChange={(e) => onChange({ idleReminderDelaySec: parseInt(e.target.value, 10) })}
               >
@@ -83,73 +84,11 @@ export function SettingsPopover({ prefs, onChange, onClose }: SettingsPopoverPro
   );
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-foreground">{label}</span>
-        {children}
-      </div>
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
-    </div>
-  );
-}
-
-function Toggle({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-0.5 cursor-pointer select-none">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-foreground">{label}</span>
-        <input
-          type="checkbox"
-          className="accent-primary cursor-pointer"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-      </div>
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
-    </label>
-  );
-}
-
-function Segmented<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-md bg-secondary p-0.5">
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            className={`px-2 py-0.5 text-[11px] rounded transition-colors ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onChange(o.value)}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[13px] text-txt">{label}</span>
+      {children}
     </div>
   );
 }

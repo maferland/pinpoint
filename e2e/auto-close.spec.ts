@@ -10,23 +10,23 @@ test("Auto-close checkbox persists server-side and shows countdown after Done", 
   await page.goto(pinpointCli.url);
 
   await openSettings(page);
-  const checkbox = page.getByRole("checkbox", { name: /Auto-close tab/ });
-  await expect(checkbox).not.toBeChecked();
+  const toggle = page.getByRole("switch", { name: /Auto-close tab/ });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
 
   // Toggle on, verify it round-trips through the /api/preferences endpoint.
-  await checkbox.check();
-  await expect(checkbox).toBeChecked();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
   const stored = await page.evaluate(async () => {
     const res = await fetch("/api/preferences");
     return res.json();
   });
   expect(stored.autoCloseAfterDone).toBe(true);
 
-  // Reload — checkbox should remember its state.
+  // Reload — toggle should remember its state.
   await page.reload();
   await openSettings(page);
-  const checkboxAfterReload = page.getByRole("checkbox", { name: /Auto-close tab/ });
-  await expect(checkboxAfterReload).toBeChecked();
+  const toggleAfterReload = page.getByRole("switch", { name: /Auto-close tab/ });
+  await expect(toggleAfterReload).toHaveAttribute("aria-checked", "true");
 
   // Click Done — button should display the countdown variant.
   await page.getByRole("button", { name: "Looks good" }).click();
@@ -41,8 +41,8 @@ test("Auto-close checkbox persists server-side and shows countdown after Done", 
 test("Auto-close OFF — Done shows the static 'you can close this tab' label", async ({ page, pinpointCli }) => {
   await page.goto(pinpointCli.url);
   await openSettings(page);
-  const checkbox = page.getByRole("checkbox", { name: /Auto-close tab/ });
-  await expect(checkbox).not.toBeChecked();
+  const toggle = page.getByRole("switch", { name: /Auto-close tab/ });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
 
   await page.getByRole("button", { name: "Looks good" }).click();
   await expect(page.getByRole("button", { name: "Sent — you can close this tab" })).toBeVisible();
