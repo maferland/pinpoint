@@ -125,6 +125,9 @@ export function CanvasLayer({
   const [imgError, setImgError] = useState(false);
   const [layout, setLayout] = useState<ImageLayout>({ drawW: 0, drawH: 0 });
   const dragRef = useRef<DragState | null>(null);
+  const accentRef = useRef(
+    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#e0524d"
+  );
   const [, setDragVersion] = useState(0);
   const bumpDrag = () => setDragVersion((v) => v + 1);
   const [scrollHints, setScrollHints] = useState({ up: false, down: false, left: false, right: false });
@@ -211,9 +214,7 @@ export function CanvasLayer({
       const dw = Math.abs(ex - sx);
       const dh = Math.abs(ey - sy);
       // Use accent red for draft box, matching the spec
-      const accentColor = getComputedStyle(document.documentElement)
-        .getPropertyValue("--accent").trim() || "#e0524d";
-      ctx.strokeStyle = accentColor;
+      ctx.strokeStyle = accentRef.current;
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 3]);
       ctx.strokeRect(dx, dy, dw, dh);

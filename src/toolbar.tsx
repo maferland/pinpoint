@@ -3,6 +3,7 @@ import { finalizeReview } from "./api.ts";
 import type { Preferences } from "./api.ts";
 import { IconButton, Button } from "./ui/index.tsx";
 import { SettingsPopover } from "./settings-popover.tsx";
+import { parseContext } from "./context.ts";
 
 interface ToolbarProps {
   reviewId: string;
@@ -78,16 +79,8 @@ export function Toolbar({
 
   const reviewShort = reviewId.slice(0, 7);
 
-  // Parse context: if it's JSON with a message field, use that as the display title.
-  let displayTitle: string = activeFilename ?? "Review";
-  if (context) {
-    try {
-      const parsed = JSON.parse(context);
-      displayTitle = parsed.message ?? parsed.title ?? context;
-    } catch {
-      displayTitle = context;
-    }
-  }
+  const ctx = parseContext(context);
+  const displayTitle: string = ctx?.message ?? activeFilename ?? "Review";
 
   return (
     <div

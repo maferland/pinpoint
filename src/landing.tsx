@@ -204,14 +204,38 @@ function HowItWorks() {
 
 /* ── JSON payload ────────────────────────────────────────────────────── */
 
+function tokenizeJson(code: string): { text: string; color?: string }[] {
+  const out: { text: string; color?: string }[] = [];
+  const re = /("[\w]+")\s*:|:\s*("(?:[^"\\]|\\.)*")|:\s*(\d+\.?\d*)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(code)) !== null) {
+    if (m.index > last) out.push({ text: code.slice(last, m.index) });
+    if (m[1]) {
+      out.push({ text: m[1], color: "var(--agent)" });
+      out.push({ text: m[0].slice(m[1].length) });
+    } else if (m[2]) {
+      out.push({ text: m[0].replace(m[2], "") });
+      out.push({ text: m[2], color: "var(--good)" });
+    } else if (m[3]) {
+      out.push({ text: m[0].replace(m[3], "") });
+      out.push({ text: m[3], color: "var(--accent)" });
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < code.length) out.push({ text: code.slice(last) });
+  return out;
+}
+
 function JsonHighlight({ code }: { code: string }) {
-  // Simple manual highlight: keys in agent-blue, strings in green, numbers in accent-red
-  const html = code
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/("[\w]+")\s*:/g, `<span style="color:var(--agent)">$1</span>:`)
-    .replace(/:\s*("(?:[^"\\]|\\.)*")/g, (m, s) => m.replace(s, `<span style="color:var(--good)">${s}</span>`))
-    .replace(/:\s*(\d+\.?\d*)/g, (m, n) => m.replace(n, `<span style="color:var(--accent)">${n}</span>`));
-  return <pre className="font-mono text-[13px] text-muted leading-relaxed px-5 py-5 m-0" dangerouslySetInnerHTML={{ __html: html }} />;
+  const tokens = tokenizeJson(code);
+  return (
+    <pre className="font-mono text-[13px] text-muted leading-relaxed px-5 py-5 m-0">
+      {tokens.map((t, i) => (
+        t.color ? <span key={i} style={{ color: t.color }}>{t.text}</span> : t.text
+      ))}
+    </pre>
+  );
 }
 
 function JsonPayload() {
