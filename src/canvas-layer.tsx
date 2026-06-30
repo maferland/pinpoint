@@ -365,29 +365,36 @@ export function CanvasLayer({
 
             {imgLoaded && selectedAnn && layout.drawW > 0 && (() => {
               const POPOVER_W = 300;
+              const POPOVER_H_EST = 190; // header + textarea min-height + footer
+              const GAP = 10;
               const isRealBox = selectedAnn.box &&
                 (selectedAnn.box.width > CLICK_BOX_SIZE + 1 || selectedAnn.box.height > CLICK_BOX_SIZE + 1);
 
-              // For boxes: anchor to the right edge of the box so the popover doesn't
-              // sit on top of the badge at the top-left corner.
+              // Boxes: anchor X to right edge, Y to top edge.
+              // Pins: anchor X to pin edge (center + radius), Y to pin center.
               const anchorX = isRealBox && selectedAnn.box
                 ? ((selectedAnn.box.x + selectedAnn.box.width) / 100) * layout.drawW
-                : (selectedAnn.pin.x / 100) * layout.drawW;
+                : (selectedAnn.pin.x / 100) * layout.drawW + PIN_RADIUS;
               const anchorY = isRealBox && selectedAnn.box
                 ? (selectedAnn.box.y / 100) * layout.drawH
                 : (selectedAnn.pin.y / 100) * layout.drawH;
 
-              const gap = 10;
-              const popoverX = anchorX + gap + POPOVER_W > layout.drawW
-                ? Math.max(0, anchorX - gap - POPOVER_W)
-                : anchorX + gap;
+              const popoverX = anchorX + GAP + POPOVER_W > layout.drawW
+                ? Math.max(0, anchorX - GAP - POPOVER_W)
+                : anchorX + GAP;
+
+              // Clamp Y so popover never overflows below the canvas (causes scroll).
+              const popoverY = Math.min(
+                Math.max(0, anchorY - 10),
+                layout.drawH - POPOVER_H_EST
+              );
 
               return (
                 <Popover
                   key={selectedAnn.id}
                   annotation={selectedAnn}
                   x={popoverX}
-                  y={Math.max(0, anchorY - 10)}
+                  y={popoverY}
                   onUpdate={(updates) => onUpdate(selectedAnn.id, updates)}
                   onDelete={() => onDelete(selectedAnn.id)}
                   onClose={() => onSelect(null)}
