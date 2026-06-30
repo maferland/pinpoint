@@ -57,10 +57,10 @@ export function WorkspaceSubbar({
           onChange={onViewModeChange}
         />
 
-        {/* Compare toggle: only when a before/after pair is available */}
+        {/* Compare toggle: available when slot has a before/after pair */}
         {compareAvailable && (
           <button
-            className="h-[28px] px-3 text-[12px] font-medium rounded-[8px] border transition-all select-none"
+            className="h-[28px] px-3 text-[12px] font-medium rounded-[8px] border transition-all select-none flex items-center gap-1.5"
             style={isCompare ? {
               backgroundColor: "var(--accent-soft)",
               borderColor: "var(--accent)",
@@ -71,7 +71,15 @@ export function WorkspaceSubbar({
               color: "var(--muted)",
             }}
             onClick={onToggleCompare}
+            title={isCompare ? "Exit compare mode" : "Show before/after comparison"}
           >
+            <span
+              className="w-[8px] h-[8px] rounded-full border transition-colors"
+              style={{
+                backgroundColor: isCompare ? "var(--accent)" : "transparent",
+                borderColor: isCompare ? "var(--accent)" : "var(--muted)",
+              }}
+            />
             Compare
           </button>
         )}

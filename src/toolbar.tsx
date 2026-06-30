@@ -72,6 +72,17 @@ export function Toolbar({
 
   const reviewShort = reviewId.slice(0, 7);
 
+  // Parse context: if it's JSON with a message field, use that as the display title.
+  let displayTitle: string = activeFilename ?? "Review";
+  if (context) {
+    try {
+      const parsed = JSON.parse(context);
+      displayTitle = parsed.message ?? parsed.title ?? context;
+    } catch {
+      displayTitle = context;
+    }
+  }
+
   return (
     <div
       className="flex items-center px-4 gap-2 bg-surface border-b border-border shrink-0 select-none"
@@ -93,11 +104,10 @@ export function Toolbar({
       {/* Context block */}
       <div className="flex flex-col justify-center min-w-0 flex-1">
         <p className="text-[13px] font-medium text-txt truncate leading-tight">
-          {context ?? activeFilename ?? "Review"}
+          {displayTitle}
         </p>
         <p className="font-mono text-[11px] text-faint truncate leading-tight">
-          {reviewShort}
-          {activeFilename && context ? ` · ${activeFilename}` : ""}
+          {reviewShort}{activeFilename ? ` · ${activeFilename}` : ""}
         </p>
       </div>
 

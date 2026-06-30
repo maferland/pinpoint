@@ -42,6 +42,7 @@ export function AnnotatorApp() {
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [finalized, setFinalized] = useState(false);
+  const [compareActive, setCompareActive] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -202,7 +203,7 @@ export function AnnotatorApp() {
   }
 
   const compareAvailable = activeSlot?.type === "compare";
-  const isCompare = compareAvailable && (compareView === "split" || compareView === "stack" || compareView === "single");
+  const isCompare = compareAvailable && compareActive;
 
   return (
     <div className="h-screen flex flex-col bg-bg overflow-hidden">
@@ -229,16 +230,14 @@ export function AnnotatorApp() {
         viewMode={prefs.viewMode}
         onCompareViewChange={(v) => onPrefsChange({ compareView: v })}
         onViewModeChange={(v) => onPrefsChange({ viewMode: v })}
-        onToggleCompare={() => {
-          if (isCompare) onPrefsChange({ compareView: "split" });
-        }}
+        onToggleCompare={() => setCompareActive((v) => !v)}
       />
 
       {/* Main content: canvas + rail */}
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas area + filmstrip column */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          {activeSlot?.type === "compare" && reviewId ? (
+          {activeSlot?.type === "compare" && isCompare && reviewId ? (
             <CompareCanvas
               activeSlot={activeSlot}
               reviewId={reviewId}
@@ -256,12 +255,21 @@ export function AnnotatorApp() {
             />
           ) : (
             <CanvasLayer
-              imageDataUrl={currentImageUrl}
-              annotations={activeAnnotations}
+              imageDataUrl={
+                activeSlot?.type === "compare" && reviewId
+                  ? imageUrl(reviewId, activeSlot.afterIndex)
+                  : currentImageUrl
+              }
+              annotations={
+                activeSlot?.type === "compare"
+                  ? annotations.filter((a) => a.imageIndex === activeSlot.afterIndex)
+                  : activeAnnotations
+              }
               selectedId={selectedId}
               justAddedId={justAddedId}
               viewMode={prefs.viewMode}
-              onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h })}
+              onBoxPlace={(x, y, w, h) => addAnnotation({ x, y, width: w, height: h },
+                activeSlot?.type === "compare" ? activeSlot.afterIndex : undefined)}
               onSelect={setSelectedId}
               onUpdate={updateAnnotation}
               onDelete={removeAnnotation}
@@ -425,7 +433,7 @@ function CompareCanvas({
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden flex flex-col">
         <CanvasLayer
           key={imgIndex}
           imageDataUrl={imageUrl(reviewId, imgIndex)}
