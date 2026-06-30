@@ -38,7 +38,7 @@ export async function finalizeReview(reviewId: string): Promise<void> {
 }
 
 export type ViewMode = "fit" | "actual";
-export type CompareView = "split" | "single";
+export type CompareView = "split" | "single" | "stack";
 
 export interface Preferences {
   autoCloseAfterDone: boolean;

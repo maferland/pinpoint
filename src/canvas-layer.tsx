@@ -7,6 +7,7 @@ interface CanvasLayerProps {
   imageDataUrl: string;
   annotations: PinpointAnnotation[];
   selectedId: string | null;
+  justAddedId?: string | null;
   viewMode: ViewMode;
   onBoxPlace: (x: number, y: number, width: number, height: number) => void;
   onSelect: (id: string | null) => void;
@@ -14,7 +15,7 @@ interface CanvasLayerProps {
   onDelete: (id: string) => void;
 }
 
-export const PIN_RADIUS = 14;
+export const PIN_RADIUS = 13; /* spec: 26px diameter */
 export const HIT_RADIUS = 22;
 export const CLICK_BOX_SIZE = 6;
 export const BOX_BORDER_HIT = 8;
@@ -110,6 +111,7 @@ export function CanvasLayer({
   imageDataUrl,
   annotations,
   selectedId,
+  justAddedId,
   viewMode,
   onBoxPlace,
   onSelect,
@@ -208,12 +210,15 @@ export function CanvasLayer({
       const dy = Math.min(sy, ey);
       const dw = Math.abs(ex - sx);
       const dh = Math.abs(ey - sy);
-      ctx.strokeStyle = "#3b82f6";
-      ctx.lineWidth = 1.5;
+      // Use accent red for draft box, matching the spec
+      const accentColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--accent").trim() || "#e0524d";
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 2;
       ctx.setLineDash([6, 3]);
       ctx.strokeRect(dx, dy, dw, dh);
       ctx.setLineDash([]);
-      ctx.fillStyle = "rgba(59,130,246,0.08)";
+      ctx.fillStyle = "rgba(224,82,77,0.08)";
       ctx.fillRect(dx, dy, dw, dh);
     }
   }, [layout]);
@@ -319,8 +324,8 @@ export function CanvasLayer({
 
   if (!imageDataUrl || imgError) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background text-muted-foreground text-[13px]">
-        {imgError ? "Failed to load image" : "Waiting for screenshot..."}
+      <div className="flex-1 flex items-center justify-center bg-bg text-muted text-[13px]">
+        {imgError ? "Failed to load image" : "Waiting for screenshot…"}
       </div>
     );
   }
@@ -355,7 +360,7 @@ export function CanvasLayer({
             <canvas ref={canvasRef} className="block" />
 
             {imgLoaded && layout.drawW > 0 && (
-              <AnnotationOverlay annotations={annotations} selectedId={selectedId} />
+              <AnnotationOverlay annotations={annotations} selectedId={selectedId} justAddedId={justAddedId} />
             )}
 
             {imgLoaded && selectedAnn && layout.drawW > 0 && (() => {
@@ -466,56 +471,81 @@ function ChevronButton({ direction, onClick }: { direction: Dir; onClick: () => 
   );
 }
 
-// DOM overlay for pins and boxes. Sits over the canvas with pointer-events
-// disabled so clicks fall through to the canvas mouse handlers, which already
-// hit-test annotations via hitTestAnnotation. Rendering as DOM keeps pin numbers
-// crisp even when the canvas backing buffer is downsampled for huge images.
 function AnnotationOverlay({
   annotations,
   selectedId,
+  justAddedId,
 }: {
   annotations: PinpointAnnotation[];
   selectedId: string | null;
+  justAddedId?: string | null;
 }) {
   return (
     <div className="absolute inset-0 pointer-events-none">
       {annotations.map((ann) => {
         const isSelected = ann.id === selectedId;
+        const isNew = ann.id === justAddedId;
         const isRealBox = ann.box && (ann.box.width > CLICK_BOX_SIZE + 1 || ann.box.height > CLICK_BOX_SIZE + 1);
         return (
-          <div key={ann.id}>
+          <div key={ann.id} className={isRealBox && isNew ? "animate-pp-dropbox" : undefined}>
             {isRealBox && ann.box && (
-              <div
-                className="absolute"
-                style={{
-                  left: `${ann.box.x}%`,
-                  top: `${ann.box.y}%`,
-                  width: `${ann.box.width}%`,
-                  height: `${ann.box.height}%`,
-                  border: `${isSelected ? 2.5 : 1.5}px dashed ${isSelected ? "#2563eb" : "#3b82f6"}`,
-                  backgroundColor: isSelected ? "rgba(37,99,235,0.12)" : "rgba(59,130,246,0.06)",
-                }}
-              />
+              <>
+                <div
+                  className="absolute"
+                  style={{
+                    left: `${ann.box.x}%`,
+                    top: `${ann.box.y}%`,
+                    width: `${ann.box.width}%`,
+                    height: `${ann.box.height}%`,
+                    border: `${isSelected ? 2 : 1.5}px dashed var(--accent)`,
+                    backgroundColor: isSelected ? "var(--accent-soft)" : "rgba(224,82,77,0.06)",
+                    boxShadow: isSelected ? "0 0 0 3px var(--accent-soft)" : undefined,
+                    borderRadius: 5,
+                  }}
+                />
+                <div
+                  className="absolute flex items-center justify-center font-mono font-bold text-white select-none"
+                  style={{
+                    left: `${ann.box.x}%`,
+                    top: `${ann.box.y}%`,
+                    width: 24,
+                    height: 24,
+                    transform: "translate(-12px,-12px)",
+                    borderRadius: "50%",
+                    backgroundColor: "var(--accent)",
+                    border: "2px solid white",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                    fontSize: 10,
+                  }}
+                >
+                  {ann.number}
+                </div>
+              </>
             )}
-            <div
-              className="absolute flex items-center justify-center font-bold text-white select-none"
-              style={{
-                left: `${ann.pin.x}%`,
-                top: `${ann.pin.y}%`,
-                width: PIN_RADIUS * 2,
-                height: PIN_RADIUS * 2,
-                marginLeft: -PIN_RADIUS,
-                marginTop: -PIN_RADIUS,
-                borderRadius: "50%",
-                backgroundColor: isSelected ? "#c73a30" : "#ea4a3e",
-                border: "2px solid white",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-                fontSize: 11,
-                fontFamily: "-apple-system, sans-serif",
-              }}
-            >
-              {ann.number}
-            </div>
+            {!isRealBox && (
+              <div
+                className={`absolute flex items-center justify-center font-mono font-bold text-white select-none${isNew ? " animate-pp-drop" : ""}`}
+                style={{
+                  left: `${ann.pin.x}%`,
+                  top: `${ann.pin.y}%`,
+                  width: PIN_RADIUS * 2,
+                  height: PIN_RADIUS * 2,
+                  /* pp-drop keyframes include translate(-50%,-50%); non-animated pins use margin */
+                  ...(isNew
+                    ? {}
+                    : { marginLeft: -PIN_RADIUS, marginTop: -PIN_RADIUS }),
+                  borderRadius: "50%",
+                  backgroundColor: "var(--accent)",
+                  border: "2px solid white",
+                  boxShadow: isSelected
+                    ? "0 0 0 4px var(--accent-soft), 0 2px 8px rgba(0,0,0,0.4)"
+                    : "0 2px 6px rgba(0,0,0,0.35)",
+                  fontSize: 11,
+                }}
+              >
+                {ann.number}
+              </div>
+            )}
           </div>
         );
       })}
