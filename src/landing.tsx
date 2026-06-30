@@ -76,7 +76,7 @@ function Hero() {
   const [tab, setTab] = useState<"terminal" | "claude">("terminal");
 
   const TERMINAL_CMD = "curl -fsSL https://pinpoint.maferland.com/install.sh | bash";
-  const CLAUDE_CMD = "/plugin marketplace add maferland/pinpoint\n/plugin install pinpoint@pinpoint-marketplace\n/pinpoint:install";
+  const CLAUDE_CMD = "/pinpoint:install";
 
   return (
     <section className="py-20 text-center">
@@ -94,8 +94,8 @@ function Hero() {
           Visual feedback for<br />AI coding agents.
         </h1>
 
-        <p className="text-[19px] text-muted max-w-[580px] mx-auto mb-10 leading-relaxed">
-          Drop pins, draw regions, type what's wrong. The agent reads your annotations as percentage coordinates and works through each one.
+        <p className="text-[19px] text-muted max-w-[520px] mx-auto mb-10 leading-relaxed">
+          Point at what's wrong. The agent gets coordinates and comments for each pin, then works through them.
         </p>
 
         {/* CTA row */}
@@ -280,7 +280,7 @@ function Agents() {
 
 function Handoff() {
   return (
-    <Section id="handoff" title="Hand it off. Get it back." lede="A review exports as a .pinpoint.zip. Send it to a designer, PM, or teammate. They add pins and send it back; you re-import.">
+    <Section id="handoff" title="Hand it off. Get it back." lede="A review exports as a .pinpoint.zip. Send it to a designer, PM, or teammate — they add pins and send it back.">
       {/* Merge banner */}
       <div
         className="flex items-center justify-between gap-4 px-5 py-4 rounded-[12px] border mb-8"
