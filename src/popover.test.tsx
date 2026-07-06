@@ -133,7 +133,7 @@ describe("Popover", () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it("deletes a new pin on Escape when nothing was typed", async () => {
+  it("does not delete a new pin on Escape, even when nothing was typed — Escape only closes", async () => {
     const user = userEvent.setup();
     const onDelete = mock(() => {});
     const onClose = mock(() => {});
@@ -149,7 +149,30 @@ describe("Popover", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
     unmount();
-    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("does not delete a new pin on Escape after typing, discarding the draft instead", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    const onClose = mock(() => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onClose={onClose}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    await user.click(textarea);
+    await user.keyboard("half-typed thought");
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+    unmount();
+    expect(onDelete).not.toHaveBeenCalled();
   });
 
   it("deletes pin when an existing comment is cleared and saved with ⌘Enter", async () => {

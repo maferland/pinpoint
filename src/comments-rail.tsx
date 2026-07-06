@@ -16,7 +16,14 @@ export function CommentsRail({ annotations, selectedId, context, onSelect }: Com
       className="flex flex-col bg-surface border-l border-border shrink-0 overflow-hidden"
       style={{ width: 340 }}
     >
-      {/* Header */}
+      {/* Agent brief — its own top-level section, not scoped under "Comments" */}
+      {ctx && (
+        <div className="border-b border-border shrink-0" style={{ padding: 12 }}>
+          <AgentBrief ctx={ctx} />
+        </div>
+      )}
+
+      {/* Comments header — labels only the pins list below, not the agent brief above */}
       <div
         className="flex items-center justify-between px-4 border-b border-border shrink-0"
         style={{ height: 52 }}
@@ -32,11 +39,8 @@ export function CommentsRail({ annotations, selectedId, context, onSelect }: Com
         )}
       </div>
 
-      {/* Scrollable content */}
+      {/* Scrollable pins/comments list */}
       <div className="flex-1 overflow-y-auto" style={{ padding: "12px 12px 16px" }}>
-        {/* Agent brief */}
-        {ctx && <AgentBrief ctx={ctx} />}
-
         {/* Empty state */}
         {annotations.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
@@ -50,7 +54,7 @@ export function CommentsRail({ annotations, selectedId, context, onSelect }: Com
 
         {/* Comment cards */}
         {annotations.length > 0 && (
-          <div className="flex flex-col gap-2 mt-3">
+          <div className="flex flex-col gap-2">
             {annotations.map((ann) => (
               <CommentCard
                 key={ann.id}
@@ -73,7 +77,7 @@ function AgentBrief({ ctx }: { ctx: ReviewContext }) {
   );
 
   return (
-    <div className="rounded-[12px] border border-border bg-bg overflow-hidden mb-1">
+    <div className="rounded-[12px] border border-border bg-bg overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5">
         <AgentAvatar />

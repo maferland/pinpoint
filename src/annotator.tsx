@@ -9,8 +9,7 @@ import { CompareCanvas } from "./compare-canvas.tsx";
 import { CommentsRail } from "./comments-rail.tsx";
 import { Thumbnail } from "./thumbnail.tsx";
 import { Toast } from "./toast.tsx";
-import { WelcomeModal } from "./welcome-modal.tsx";
-import { ShareModal } from "./share-modal.tsx";
+import { HelpModal } from "./help-modal.tsx";
 import { UpdateBanner } from "./update-banner.tsx";
 import { useIdleReminder } from "./use-idle-reminder.ts";
 import { useKeyPress } from "./use-key-press.ts";
@@ -38,13 +37,13 @@ export function AnnotatorApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const [viewModesEquivalent, setViewModesEquivalent] = useState(false);
   const [activeSide, setActiveSide] = useState<"before" | "after">("before");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [prefs, setPrefs] = useState<Preferences>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [finalized, setFinalized] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [showShare, setShowShare] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const justAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -89,7 +88,7 @@ export function AnnotatorApp() {
   const activeSlot = slots[activeSlotIndex] ?? null;
   const compareView = prefs.compareView ?? "split";
 
-  useEffect(() => { setActiveSide("before"); }, [activeSlotIndex]);
+  useEffect(() => { setActiveSide("before"); setViewModesEquivalent(false); }, [activeSlotIndex]);
 
   const activeFilename = (() => {
     if (!activeSlot || !review) return undefined;
@@ -101,9 +100,13 @@ export function AnnotatorApp() {
     ? imageUrl(reviewId, activeSlot.imageIndex)
     : "";
 
-  const activeAnnotations = activeSlot?.type === "single"
+  const activeAnnotations = !activeSlot
+    ? []
+    : activeSlot.type === "single"
     ? annotations.filter((a) => a.imageIndex === activeSlot.imageIndex)
-    : [];
+    : annotations.filter(
+        (a) => a.imageIndex === activeSlot.beforeIndex || a.imageIndex === activeSlot.afterIndex
+      );
 
   const pendingAnnotations = useRef<PinpointAnnotation[] | null>(null);
   const persistAnnotations = useCallback(
@@ -175,19 +178,9 @@ export function AnnotatorApp() {
     [annotations, selectedId, persistAnnotations]
   );
 
-  const handleExport = useCallback(async () => {
-    try { await flushAnnotations(); } catch (err) { console.error("Flush before export:", err); }
-    const a = document.createElement("a");
-    a.href = `/api/review/${reviewId}/export`;
-    a.download = `${reviewId}.pinpoint.zip`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }, [reviewId, flushAnnotations]);
-
   useKeyPress("Escape", () => setSelectedId(null));
   useKeyPress(["Delete", "Backspace"], () => removeAnnotation(selectedId!), { when: !!selectedId });
-  useKeyPress("?", () => setShowWelcome((v) => !v));
+  useKeyPress("?", () => setShowHelp((v) => !v));
   useKeyPress("Tab", (e) => { e.preventDefault(); setActiveSide((s) => s === "before" ? "after" : "before"); }, {
     when: activeSlot?.type === "compare" && compareView === "single",
   });
@@ -221,8 +214,7 @@ export function AnnotatorApp() {
         prefsLoaded={prefsLoaded}
         onPrefsChange={onPrefsChange}
         onFinalized={() => setFinalized(true)}
-        onShowWelcome={() => setShowWelcome(true)}
-        onShowShare={() => setShowShare(true)}
+        onShowHelp={() => setShowHelp(true)}
         onToast={setToast}
         onBeforeExport={flushAnnotations}
       />
@@ -234,6 +226,7 @@ export function AnnotatorApp() {
         viewMode={prefs.viewMode}
         onCompareViewChange={(v) => onPrefsChange({ compareView: v })}
         onViewModeChange={(v) => onPrefsChange({ viewMode: v })}
+        viewModesEquivalent={viewModesEquivalent}
       />
 
       {/* Main content: canvas + rail */}
@@ -269,6 +262,7 @@ export function AnnotatorApp() {
               onSelect={setSelectedId}
               onUpdate={updateAnnotation}
               onDelete={removeAnnotation}
+              onViewModesEquivalent={setViewModesEquivalent}
             />
           )}
           </div>
@@ -317,15 +311,7 @@ export function AnnotatorApp() {
 
       {/* Overlays */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
-      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
-      {showShare && reviewId && (
-        <ShareModal
-          reviewId={reviewId}
-          onClose={() => setShowShare(false)}
-          onToast={setToast}
-          onExport={handleExport}
-        />
-      )}
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 }

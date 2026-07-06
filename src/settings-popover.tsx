@@ -17,6 +17,9 @@ export function SettingsPopover({ prefs, onChange, onClose }: SettingsPopoverPro
     const onDocMouseDown = (e: MouseEvent) => {
       if (!rootRef.current) return;
       if (e.target instanceof Node && rootRef.current.contains(e.target)) return;
+      // The toggle button's own onClick handles closing when reclicked — if this
+      // mousedown-outside handler also closes, the click that follows reopens it.
+      if (e.target instanceof Element && e.target.closest("[data-settings-trigger]")) return;
       onClose();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

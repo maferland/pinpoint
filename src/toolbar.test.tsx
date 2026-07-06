@@ -28,8 +28,7 @@ function renderToolbar(overrides: { onBeforeExport?: () => Promise<void> } = {})
       prefsLoaded={true}
       onPrefsChange={() => {}}
       onFinalized={() => {}}
-      onShowWelcome={() => {}}
-      onShowShare={() => {}}
+      onShowHelp={() => {}}
       onToast={() => {}}
       onBeforeExport={onBeforeExport}
     />

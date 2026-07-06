@@ -4,26 +4,32 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-function moveLandingHtml(): Plugin {
+function moveEntryHtml(): Plugin {
   return {
-    name: "move-landing-html",
+    name: "move-entry-html",
     closeBundle() {
-      const src = path.resolve(__dirname, "site/src/landing.html");
-      const dest = path.resolve(__dirname, "site/index.html");
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, dest);
-        fs.rmSync(path.resolve(__dirname, "site/src"), { recursive: true, force: true });
+      const moves: Array<[string, string]> = [
+        ["site/src/landing.html", "site/index.html"],
+        ["site/src/try.html", "site/try.html"],
+      ];
+      for (const [from, to] of moves) {
+        const src = path.resolve(__dirname, from);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.resolve(__dirname, to));
       }
+      fs.rmSync(path.resolve(__dirname, "site/src"), { recursive: true, force: true });
     },
   };
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), moveLandingHtml()],
+  plugins: [react(), tailwindcss(), moveEntryHtml()],
   publicDir: path.resolve(__dirname, "site"),
   build: {
     rollupOptions: {
-      input: path.resolve(__dirname, "src/landing.html"),
+      input: [
+        path.resolve(__dirname, "src/landing.html"),
+        path.resolve(__dirname, "src/try.html"),
+      ],
     },
     outDir: "site",
     emptyOutDir: false,

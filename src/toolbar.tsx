@@ -14,8 +14,7 @@ interface ToolbarProps {
   onThemeToggle: () => void;
   prefs: Preferences;
   onFinalized: () => void;
-  onShowWelcome: () => void;
-  onShowShare: () => void;
+  onShowHelp: () => void;
   prefsLoaded: boolean;
   onPrefsChange: (patch: Partial<Preferences>) => void;
   onToast: (msg: string) => void;
@@ -31,8 +30,7 @@ export function Toolbar({
   onThemeToggle,
   prefs,
   onFinalized,
-  onShowWelcome,
-  onShowShare,
+  onShowHelp,
   onToast,
   onBeforeExport,
   prefsLoaded,
@@ -114,22 +112,8 @@ export function Toolbar({
         </p>
       </div>
 
-      {/* Interaction hints pill */}
-      <div
-        className="hidden md:flex items-center gap-3 px-3 h-[30px] rounded-[8px] border border-border bg-bg shrink-0"
-        aria-hidden
-      >
-        <span className="flex items-center gap-1.5 text-[11px] text-muted">
-          <TargetIcon /> Click to pin
-        </span>
-        <span className="text-faint text-[10px]">│</span>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted">
-          <DragBoxIcon /> Drag to box
-        </span>
-      </div>
-
       {/* Action buttons */}
-      <IconButton onClick={onShowWelcome} title="How it works (?)" aria-label="Help">
+      <IconButton onClick={onShowHelp} title="Keyboard shortcuts (?)" aria-label="Help">
         <QuestionIcon />
       </IconButton>
 
@@ -144,6 +128,7 @@ export function Toolbar({
           disabled={!prefsLoaded}
           title="Settings"
           aria-label="Settings"
+          data-settings-trigger
         >
           <GearIcon />
         </IconButton>
@@ -159,21 +144,6 @@ export function Toolbar({
       <IconButton onClick={handleExport} title="Export .pinpoint.zip" aria-label="Export session">
         <DownloadIcon />
       </IconButton>
-
-      {/* Share with annotation count badge */}
-      <div className="relative">
-        <IconButton onClick={onShowShare} title="Share" aria-label="Share review">
-          <ShareIcon />
-        </IconButton>
-        {annotationCount > 0 && (
-          <span
-            className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center font-mono text-[9px] font-bold text-white rounded-full pointer-events-none"
-            style={{ backgroundColor: "var(--accent)", padding: "0 3px" }}
-          >
-            {annotationCount}
-          </span>
-        )}
-      </div>
 
       <Divider />
 
@@ -255,18 +225,6 @@ function QuestionIcon() {
   );
 }
 
-function ShareIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
 function CheckIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -293,19 +251,3 @@ function GearIcon() {
   );
 }
 
-function TargetIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <circle cx="12" cy="12" r="4" />
-    </svg>
-  );
-}
-
-function DragBoxIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 2">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-    </svg>
-  );
-}

@@ -37,9 +37,9 @@ function useFlushSave(
   const cancel = useCallback(() => { cancelRef.current = true; }, []);
 
   useEffect(() => () => {
+    if (cancelRef.current) return; // Escape: revert, never delete — the annotation stays exactly as last committed.
     flush();
-    const finalComment = cancelRef.current ? committedRef.current : draftRef.current;
-    if (finalComment.trim() === "") onDeleteRef.current();
+    if (draftRef.current.trim() === "") onDeleteRef.current();
   }, [flush]);
 
   return { flush, cancel };
@@ -54,6 +54,10 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);
+  useEffect(() => {
+    const timer = setTimeout(flush, 400);
+    return () => clearTimeout(timer);
+  }, [comment, flush]);
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;

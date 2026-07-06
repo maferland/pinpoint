@@ -8,6 +8,8 @@ interface WorkspaceSubbarProps {
   viewMode: ViewMode;
   onCompareViewChange: (v: CompareView) => void;
   onViewModeChange: (v: ViewMode) => void;
+  /** When true, Fit and Full size render identically at the current viewport — hide the toggle. */
+  viewModesEquivalent: boolean;
 }
 
 export function WorkspaceSubbar({
@@ -17,6 +19,7 @@ export function WorkspaceSubbar({
   viewMode,
   onCompareViewChange,
   onViewModeChange,
+  viewModesEquivalent,
 }: WorkspaceSubbarProps) {
   return (
     <div
@@ -41,14 +44,16 @@ export function WorkspaceSubbar({
           />
         )}
 
-        <SegmentedControl
-          value={viewMode}
-          options={[
-            { value: "fit",    label: "Fit",       icon: <FitIcon /> },
-            { value: "actual", label: "Full size",  icon: <FullIcon /> },
-          ] as { value: ViewMode; label: string; icon: React.ReactNode }[]}
-          onChange={onViewModeChange}
-        />
+        {!viewModesEquivalent && (
+          <SegmentedControl
+            value={viewMode}
+            options={[
+              { value: "fit",    label: "Fit",       icon: <FitIcon /> },
+              { value: "actual", label: "Full size",  icon: <FullIcon /> },
+            ] as { value: ViewMode; label: string; icon: React.ReactNode }[]}
+            onChange={onViewModeChange}
+          />
+        )}
       </div>
     </div>
   );

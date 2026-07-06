@@ -231,7 +231,7 @@ describe("pinpoint export/open cli", () => {
       images: Array<{ width: number }>;
     };
     expect(review.annotations).toHaveLength(3);
-    expect(review.images[0].width).toBe(2880);
+    expect(review.images[0].width).toBe(1440);
 
     await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
     expect(await cli.exited).toBe(0);

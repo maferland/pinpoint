@@ -16,7 +16,7 @@ export function Modal({ onClose, children, maxWidth = 440 }: ModalProps) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-5"
-      style={{ backgroundColor: "rgba(0,0,0,.45)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+      style={{ backgroundColor: "rgba(0,0,0,.45)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
       onClick={onClose}
     >
       <div

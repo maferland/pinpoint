@@ -78,11 +78,10 @@ function NavLink({ href, children }: { href: string; children: ReactNode }) {
 /* ── Hero ────────────────────────────────────────────────────────────── */
 
 function Hero() {
-  const [tab, setTab] = useState<"terminal" | "claude" | "demo">("terminal");
+  const [tab, setTab] = useState<"terminal" | "claude">("terminal");
 
   const TERMINAL_CMD = "curl -fsSL https://pinpoint.maferland.com/install.sh | bash";
   const CLAUDE_CMD = "/pinpoint:install";
-  const DEMO_CMD = "pinpoint demo";
 
   return (
     <section className="py-20 text-center">
@@ -116,7 +115,7 @@ function Hero() {
           <Button
             variant="surface"
             size="md"
-            onClick={() => setTab("demo")}
+            onClick={() => { window.location.href = "/try.html"; }}
           >
             Try the demo
           </Button>
@@ -128,7 +127,7 @@ function Hero() {
           style={{ backgroundColor: "var(--bg2)" }}
         >
           <div className="flex gap-1 px-1.5 pt-1.5 border-b border-border" style={{ backgroundColor: "var(--surface)" }}>
-            {(["terminal", "claude", "demo"] as const).map((t) => (
+            {(["terminal", "claude"] as const).map((t) => (
               <button
                 key={t}
                 className={`px-3.5 py-2 font-mono text-[12px] font-medium rounded-t-[6px] transition-colors border-b-2 ${
@@ -138,23 +137,18 @@ function Hero() {
                 }`}
                 onClick={() => setTab(t)}
               >
-                {t === "terminal" ? "Terminal" : t === "claude" ? "Claude Code" : "Demo"}
+                {t === "terminal" ? "Terminal" : "Claude Code"}
               </button>
             ))}
           </div>
           <div className="relative px-4 py-3.5 pr-10">
-            <pre className="font-mono text-[13px] text-txt leading-relaxed whitespace-pre-wrap break-all m-0">
-              {tab === "terminal" ? TERMINAL_CMD : tab === "claude" ? CLAUDE_CMD : DEMO_CMD}
+            <pre className="font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-all m-0">
+              <TerminalLine command={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} prompt={tab === "terminal"} />
             </pre>
             <div className="absolute top-2.5 right-2.5">
-              <CopyButton text={tab === "terminal" ? TERMINAL_CMD : tab === "claude" ? CLAUDE_CMD : DEMO_CMD} />
+              <CopyButton text={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} />
             </div>
           </div>
-          {tab === "demo" && (
-            <p className="px-4 pb-3.5 text-[12px] text-faint leading-relaxed">
-              Opens a sample session in your browser with three starter pins on a real screenshot — no screenshot of your own required.
-            </p>
-          )}
         </div>
 
         {/* Product screenshot */}
@@ -288,6 +282,7 @@ function Agents() {
       title: "Claude Code",
       body: "Slash command, no setup beyond install.",
       code: "/pinpoint:review",
+      prompt: false,
     },
     {
       title: "Any MCP agent",
@@ -297,7 +292,7 @@ function Agents() {
     {
       title: "Direct CLI",
       body: "Spawns the server, opens the browser, blocks on Send, prints JSON to stdout.",
-      code: "pinpoint review screenshot.png",
+      code: "pinpoint review app.png",
     },
   ];
 
@@ -312,14 +307,7 @@ function Agents() {
           >
             <p className="text-[14px] font-semibold text-txt">{c.title}</p>
             <p className="text-[13px] text-muted leading-relaxed flex-1">{c.body}</p>
-            {c.code && (
-              <pre
-                className="font-mono text-[12px] text-txt rounded-[7px] border border-border px-3 py-2.5 m-0 overflow-hidden whitespace-pre-wrap"
-                style={{ backgroundColor: "var(--bg)" }}
-              >
-                {c.code}
-              </pre>
-            )}
+            {c.code && <CodeBlock code={c.code} prompt={c.prompt ?? true} />}
           </div>
         ))}
       </div>
@@ -411,14 +399,25 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({ code, prompt = true }: { code: string; prompt?: boolean }) {
   return (
     <pre
-      className="font-mono text-[12px] text-muted rounded-[7px] border border-border px-3 py-2 m-0 overflow-x-auto"
-      style={{ backgroundColor: "var(--bg2)" }}
+      className="font-mono text-[13px] rounded-[10px] border border-border px-4 py-3 m-0 overflow-x-auto"
+      style={{ backgroundColor: "var(--bg)" }}
     >
-      {code}
+      <TerminalLine command={code} prompt={prompt} />
     </pre>
+  );
+}
+
+function TerminalLine({ command, prompt = true }: { command: string; prompt?: boolean }) {
+  const [head, ...rest] = command.split(" ");
+  return (
+    <>
+      {prompt && <span className="text-faint select-none">$ </span>}
+      <span style={{ color: "var(--accent)" }}>{head}</span>
+      {rest.length > 0 && <span className="text-muted"> {rest.join(" ")}</span>}
+    </>
   );
 }
 

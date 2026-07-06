@@ -13,6 +13,8 @@ interface CanvasLayerProps {
   onSelect: (id: string | null) => void;
   onUpdate: (id: string, updates: Partial<PinpointAnnotation>) => void;
   onDelete: (id: string) => void;
+  /** Reports whether "Fit" and "Full size" would render the image identically at the current viewport. */
+  onViewModesEquivalent?: (equivalent: boolean) => void;
 }
 
 export const PIN_RADIUS = 13; /* spec: 26px diameter */
@@ -117,6 +119,7 @@ export function CanvasLayer({
   onSelect,
   onUpdate,
   onDelete,
+  onViewModesEquivalent,
 }: CanvasLayerProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -148,9 +151,15 @@ export function CanvasLayer({
     const v = viewportRef.current;
     const img = imgRef.current;
     if (!v || !img) return;
-    const next = getImageLayout(v.getBoundingClientRect(), img, viewMode);
+    const rect = v.getBoundingClientRect();
+    const next = getImageLayout(rect, img, viewMode);
     setLayout((prev) => prev.drawW === next.drawW && prev.drawH === next.drawH ? prev : next);
-  }, [viewMode]);
+    if (onViewModesEquivalent) {
+      const fit = getImageLayout(rect, img, "fit");
+      const actual = getImageLayout(rect, img, "actual");
+      onViewModesEquivalent(fit.drawW === actual.drawW && fit.drawH === actual.drawH);
+    }
+  }, [viewMode, onViewModesEquivalent]);
 
   useEffect(() => { if (imgLoaded) computeLayout(); }, [imgLoaded, computeLayout]);
   useEffect(() => {
