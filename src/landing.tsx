@@ -45,12 +45,14 @@ function Nav({ theme, onThemeToggle }: { theme: "dark" | "light"; onThemeToggle:
           <span className="font-mono font-semibold text-txt" style={{ fontSize: 15, letterSpacing: "-0.4px" }}>pinpoint</span>
         </a>
         <nav className="flex items-center gap-5">
-          <NavLink href="#how">How it works</NavLink>
-          <NavLink href="#agents">Agents</NavLink>
-          <NavLink href="#handoff">Handoff</NavLink>
-          <NavLink href="https://github.com/maferland/pinpoint">GitHub</NavLink>
+          <div className="hidden sm:flex items-center gap-5">
+            <NavLink href="#how">How it works</NavLink>
+            <NavLink href="#agents">Agents</NavLink>
+            <NavLink href="#handoff">Handoff</NavLink>
+            <NavLink href="https://github.com/maferland/pinpoint">GitHub</NavLink>
+          </div>
           <button
-            className="w-7 h-7 rounded-[7px] border border-border flex items-center justify-center text-muted hover:text-txt hover:border-faint transition-colors"
+            className="w-7 h-7 rounded-[7px] border border-border flex items-center justify-center text-muted hover:text-txt hover:border-faint transition-colors shrink-0"
             onClick={onThemeToggle}
             aria-label="Toggle color scheme"
           >
@@ -141,7 +143,7 @@ function Hero() {
             ))}
           </div>
           <div className="relative px-4 py-3.5 pr-10">
-            <pre className="font-mono text-[13px] text-txt leading-relaxed whitespace-pre-wrap m-0">
+            <pre className="font-mono text-[13px] text-txt leading-relaxed whitespace-pre-wrap break-all m-0">
               {tab === "terminal" ? TERMINAL_CMD : tab === "claude" ? CLAUDE_CMD : DEMO_CMD}
             </pre>
             <div className="absolute top-2.5 right-2.5">
@@ -243,7 +245,7 @@ function tokenizeJson(code: string): { text: string; color?: string }[] {
 function JsonHighlight({ code }: { code: string }) {
   const tokens = tokenizeJson(code);
   return (
-    <pre className="font-mono text-[13px] text-muted leading-relaxed px-5 py-5 m-0">
+    <pre className="font-mono text-[13px] text-muted leading-relaxed px-5 py-5 m-0 overflow-x-auto">
       {tokens.map((t, i) => (
         t.color ? <span key={i} style={{ color: t.color }}>{t.text}</span> : t.text
       ))}
