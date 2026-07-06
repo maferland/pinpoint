@@ -37,7 +37,12 @@ function useFlushSave(
   const cancel = useCallback(() => { cancelRef.current = true; }, []);
 
   useEffect(() => () => {
-    if (cancelRef.current) return; // Escape: revert, never delete — the annotation stays exactly as last committed.
+    if (cancelRef.current) {
+      // Escape: discard the draft. Only clean up if nothing was ever committed —
+      // an annotation with real saved content is never deleted by Escape.
+      if (committedRef.current.trim() === "") onDeleteRef.current();
+      return;
+    }
     flush();
     if (draftRef.current.trim() === "") onDeleteRef.current();
   }, [flush]);
