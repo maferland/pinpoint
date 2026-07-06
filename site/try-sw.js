@@ -1,6 +1,6 @@
 // Intercepts the annotator's API calls (including native <img> loads) for the static demo page — no backend exists here.
 
-const DEMO_ID = "try-demo";
+const DEMO_ID = "try-demo"; // must match TRY_DEMO_ID in src/try-bootstrap.ts
 const IMAGE_PATH = "/assets/demo-content.png";
 
 let annotations = [];
