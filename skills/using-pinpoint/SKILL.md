@@ -1,6 +1,6 @@
 ---
 name: using-pinpoint
-description: Use when reviewing UI visually, getting design feedback, or when the user wants to annotate screenshots. Triggers on "review this page", "what's wrong with this UI", "annotate", "visual feedback", screenshot review workflows, or after making UI changes that need verification.
+description: This skill should be used when reviewing UI visually, getting design feedback, or annotating screenshots. Triggers on phrases like "review this page", "what's wrong with this UI", "annotate", "visual feedback", screenshot review workflows, or after making UI changes that need verification.
 ---
 
 # Pinpoint — Visual Annotation CLI
@@ -37,28 +37,42 @@ xcrun simctl io booted screenshot /tmp/screenshot.png
 
 ### 2. Invoke pinpoint via Bash — DO NOT just emit `/pinpoint:review` as text
 
-Plain text like `/pinpoint:review /tmp/foo.png` is just text — it doesn't run anything. To actually open the annotation UI you must call the `pinpoint` CLI through the Bash tool:
+Plain text like `/pinpoint:review /tmp/foo.png` is just text — it doesn't run anything. To actually open the annotation UI you must call the `pinpoint` CLI through the Bash tool.
+
+`--context` is JSON, not a bare string. Before invoking, gather what you already have on hand — you're almost always mid-task when you call this, so this information is cheap:
+- `message` (required) — what changed and what you want checked
+- `path` — the file you just edited (you know this; you were just in it)
+- `branch` — one `git branch --show-current` call
+- `url` — the dev server URL, if the change is web-facing
+
+Run it as a shell command through the Bash tool (the JSON's double quotes are already protected by the outer single quotes — no backslash-escaping needed):
+
+```bash
+pinpoint review /tmp/screenshot.png --context '{"message":"Login page after auth changes — suspect spacing bug under .form-row","url":"http://localhost:3000/login","path":"src/pages/login.tsx","branch":"maferland/auth-fix"}'
+```
+
+Only fall back to a plain string (shown as the message, no metadata row) when you genuinely have nothing beyond the message — e.g. reviewing a screenshot the user handed you with no associated file:
 
 ```
-Bash(command="pinpoint review /tmp/screenshot.png --context 'Login page after auth changes — suspect spacing bug under .form-row'")
+Bash(command="pinpoint review /tmp/screenshot.png --context 'User-provided mockup — no source file to reference'")
 ```
 
-Before/after comparison pairs (`--pair before after`, repeatable) mixed freely with standalone images:
+Before/after comparison pairs (`--pair before after`, repeatable) mixed freely with standalone images — same `--context` rules apply:
 
-```
-Bash(command="pinpoint review --pair /tmp/before.png /tmp/after.png --context 'Button spacing fix'")
+```bash
+pinpoint review --pair /tmp/before.png /tmp/after.png --context '{"message":"Button spacing fix","path":"src/components/Button.tsx","branch":"maferland/button-spacing"}'
 ```
 
-```
-Bash(command="pinpoint review --pair /tmp/before.png /tmp/after.png --pair /tmp/old.png /tmp/new.png /tmp/extra.png --context 'Two comparisons + a standalone'")
+```bash
+pinpoint review --pair /tmp/before.png /tmp/after.png --pair /tmp/old.png /tmp/new.png /tmp/extra.png --context '{"message":"Two comparisons + a standalone"}'
 ```
 
 Each `--pair` opens a side-by-side Before/After pane; standalone positional args use the normal single-image canvas. All slots share one thumbnail strip; arrow keys navigate between them.
 
 Multiple standalone images without comparison:
 
-```
-Bash(command="pinpoint review /tmp/step1.png /tmp/step2.png /tmp/step3.png --context '...'")
+```bash
+pinpoint review /tmp/step1.png /tmp/step2.png /tmp/step3.png --context '{"message":"...","path":"..."}'
 ```
 
 The Bash call:
@@ -66,7 +80,9 @@ The Bash call:
 - blocks until the user hits **Send** in the toolbar
 - prints the structured annotations as JSON on stdout
 
-Always pass `--context` — it shows in the toolbar and orients the user.
+Always pass `--context` — it shows in the toolbar and, when given as JSON, populates the "From your agent" card in the comments rail with clickable/labeled metadata (`url`, `path`, `branch`) instead of just a sentence. That metadata is what lets the user act on the review without re-asking you where the change lives.
+
+Supported fields: `message` (required — the actual context), `url`, `path`, `branch` (all optional).
 
 **Never detach the call.** No trailing `&`, no `nohup`, no `disown`. The CLI's stdout JSON is the whole point — detaching throws it away, the user clicks Send, and you never see the annotations. A `PreToolUse` hook will hard-block detached invocations.
 
@@ -161,7 +177,7 @@ There's also an MCP server (registered as `pinpoint`) exposing `create_review`, 
 
 ## Tips
 
-- Always provide `--context` — it shows in the toolbar and helps the user orient
+- `--context` format is covered in step 2 — default to JSON, not a bare string
 - Coordinates are percentages — resolution-independent
 - The user can switch dark/light theme in the toolbar
 - The "Auto-close" preference is persisted across sessions in `~/.pinpoint/preferences.json`

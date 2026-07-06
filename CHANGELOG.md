@@ -1,3 +1,13 @@
+## [v0.11.0]
+
+- **Escape no longer deletes your pin.** Cancelling out of a fresh annotation could wipe it entirely instead of just closing the popover.
+- **Comments rail updates as you type.** A pin's comment used to only show up in the rail after you saved or closed it; now it's live.
+- **Comments rail no longer goes blank in compare mode.** Pins on a before/after pair weren't showing up in the rail at all.
+- **Keyboard shortcuts, not a demo pitch.** The `?` help panel is now a straight shortcuts reference, including the previously-undocumented `Tab` to flip Before/After.
+- **Settings button toggles correctly.** A second click now closes the panel instead of silently reopening it.
+- **Fit / Full size hides itself when there's nothing to toggle.** Previously you could click between the two with no visible difference.
+- **Richer agent context.** `--context` now accepts JSON (`message`/`url`/`path`/`branch`), so the "From your agent" card shows a clickable URL and file path instead of just a sentence.
+
 ## [v0.10.0]
 
 - **Single-image compare mode.** Comparison slots now have a floating menu button (top-right) to toggle between split and single view. Single mode shows one full-width image at a time — click Before/After in the menu or press Tab to flip. Press S to toggle the mode without touching the mouse. Preference is saved across sessions.

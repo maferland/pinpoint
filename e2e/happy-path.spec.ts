@@ -8,14 +8,18 @@ test("user pins, types, hits Done — cli returns annotation JSON and exits clea
   await page.goto(pinpointCli.url);
 
   // Toolbar is the proof the page hydrated.
-  await expect(page.getByText("Pinpoint", { exact: true })).toBeVisible();
-  await expect(page.getByText("playwright happy-path")).toBeVisible();
-  await expect(page.getByText("0 pins")).toBeVisible();
+  await expect(page.getByText("pinpoint", { exact: true })).toBeVisible();
+  await expect(page.getByText("playwright happy-path").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Looks good" })).toBeVisible();
 
   // Drop a pin by clicking the canvas. The annotator picks the click location;
   // we just need a click somewhere over the image.
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible({ timeout: 10000 });
+  await page.waitForFunction(() => {
+    const c = document.querySelector("canvas");
+    return c != null && c.style.width !== "";
+  }, { timeout: 10000 });
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
@@ -35,7 +39,7 @@ test("user pins, types, hits Done — cli returns annotation JSON and exits clea
   // ⌘Enter saves and closes the popover.
   await textarea.press("Meta+Enter");
   await expect(textarea).toBeHidden();
-  await expect(page.getByText("1 pin")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send 1 comment" })).toBeVisible();
   await annotationsSaved;
 
   // Click Done.

@@ -1,6 +1,6 @@
 {
   "name": "pinpoint",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "description": "Visual annotation for AI coding agents — screenshot anything, annotate regions, get structured feedback",
   "license": "MIT",
@@ -20,7 +20,9 @@
   },
   "scripts": {
     "build": "bun scripts/build.mjs",
+    "build:site": "vite build --config vite.site.config.ts",
     "dev": "bun --watch src/main.ts",
+    "dev:site": "vite --config vite.site.config.ts",
     "test": "bun test",
     "test:e2e": "bun run build && playwright test",
     "test:all": "bun run test && bun run test:e2e",

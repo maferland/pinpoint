@@ -7,6 +7,11 @@ test("clicking outside the popover saves the typed comment", async ({ page, pinp
 
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
+  // Wait until the image has loaded and the canvas backing buffer has been drawn.
+  await page.waitForFunction(() => {
+    const c = document.querySelector("canvas");
+    return c != null && c.style.width !== "";
+  }, { timeout: 10000 });
   const cbox = await canvas.boundingBox();
   expect(cbox).not.toBeNull();
 
@@ -39,6 +44,10 @@ test("Escape discards the typed draft and the empty pin", async ({ page, pinpoin
 
   const canvas = page.locator("canvas");
   await expect(canvas).toBeVisible();
+  await page.waitForFunction(() => {
+    const c = document.querySelector("canvas");
+    return c != null && c.style.width !== "";
+  }, { timeout: 10000 });
   const cbox = await canvas.boundingBox();
   expect(cbox).not.toBeNull();
 

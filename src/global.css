@@ -1,5 +1,48 @@
 @import "tailwindcss";
 
+/* ── Configure dark variant to use data-theme attribute ─────────────── */
+@variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ── Design tokens ───────────────────────────────────────────────────── */
+:root {
+  --bg:           #f5f6f8;
+  --bg2:          #ebedf1;
+  --surface:      #ffffff;
+  --border:       #e4e7ec;
+  --text:         #191c22;
+  --muted:        #5f6772;
+  --faint:        #98a0ac;
+  --accent:       #e0524d;
+  --accent-soft:  rgba(224,82,77,.12);
+  --good:         #3f9e6b;
+  --good-soft:    rgba(63,158,107,.12);
+  --agent:        #5b6cff;
+  --shadow:       0 1px 2px rgba(16,20,28,.05), 0 10px 30px rgba(16,20,28,.07);
+
+  /* Canvas letterbox — kept as HSL for existing canvas-layer usage */
+  --canvas-letterbox: 220 10% 88%;
+  --canvas-dot:       220 10% 74%;
+}
+
+[data-theme="dark"] {
+  --bg:           #0e1014;
+  --bg2:          #15181e;
+  --surface:      #181c23;
+  --border:       #282d36;
+  --text:         #eceef2;
+  --muted:        #9aa3b0;
+  --faint:        #646d7a;
+  --accent:       #f26a64;
+  --accent-soft:  rgba(242,106,100,.16);
+  --good:         #54b985;
+  --good-soft:    rgba(84,185,133,.16);
+  --shadow:       0 1px 2px rgba(0,0,0,.4), 0 14px 36px rgba(0,0,0,.5);
+
+  --canvas-letterbox: 220 16% 5%;
+  --canvas-dot:       220 16% 18%;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -9,109 +52,114 @@
 }
 
 html, body {
+  font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Annotator is a full-viewport app — clip document scroll so only internal
+   viewports scroll. Landing page overrides this via body.landing. */
+body:not(.landing) {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
-:root {
-  --background: 220 16% 6%;
-  --foreground: 220 10% 92%;
-  --card: 220 14% 9%;
-  --card-foreground: 220 10% 92%;
-  --popover: 220 14% 9%;
-  --popover-foreground: 220 10% 92%;
-  --primary: 4 80% 58%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 12% 14%;
-  --secondary-foreground: 220 10% 75%;
-  --muted: 220 12% 16%;
-  --muted-foreground: 220 8% 48%;
-  --accent: 220 12% 18%;
-  --accent-foreground: 220 10% 92%;
-  --destructive: 0 72% 51%;
-  --border: 220 12% 14%;
-  --radius: .5rem;
-  --canvas-letterbox: 220 16% 5%;
-  --canvas-dot: 220 16% 18%;
-  --surface-hover: 220 12% 12%;
-  --surface-active: 220 12% 14%;
-}
+/* ── Semantic color utilities ────────────────────────────────────────── */
+@utility bg-bg       { background-color: var(--bg); }
+@utility bg-bg2      { background-color: var(--bg2); }
+@utility bg-surface  { background-color: var(--surface); }
+@utility bg-accent   { background-color: var(--accent); }
+@utility bg-accent-soft { background-color: var(--accent-soft); }
+@utility bg-good     { background-color: var(--good); }
+@utility bg-good-soft { background-color: var(--good-soft); }
+@utility bg-agent    { background-color: var(--agent); }
 
-.light {
-  --background: 0 0% 97%;
-  --foreground: 220 14% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 14% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 220 14% 10%;
-  --primary: 4 80% 52%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 93%;
-  --secondary-foreground: 220 10% 35%;
-  --muted: 220 14% 93%;
-  --muted-foreground: 220 8% 46%;
-  --accent: 220 14% 90%;
-  --accent-foreground: 220 14% 10%;
-  --destructive: 0 72% 51%;
-  --border: 220 14% 88%;
-  --canvas-letterbox: 220 10% 88%;
-  --canvas-dot: 220 10% 74%;
-  --surface-hover: 220 14% 94%;
-  --surface-active: 220 14% 90%;
-}
+@utility text-txt    { color: var(--text); }
+@utility text-muted  { color: var(--muted); }
+@utility text-faint  { color: var(--faint); }
+@utility text-accent { color: var(--accent); }
+@utility text-good   { color: var(--good); }
+@utility text-agent  { color: var(--agent); }
 
-* { border-color: hsl(var(--border)); }
-body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
+@utility border-border  { border-color: var(--border); }
+@utility border-accent  { border-color: var(--accent); }
+@utility border-good    { border-color: var(--good); }
 
-/* Direct color utilities using CSS variables — bypasses @theme build-time resolution */
-.bg-background { background-color: hsl(var(--background)) !important; }
-.bg-foreground { background-color: hsl(var(--foreground)) !important; }
-.bg-card { background-color: hsl(var(--card)) !important; }
-.bg-popover { background-color: hsl(var(--popover)) !important; }
-.bg-primary { background-color: hsl(var(--primary)) !important; }
-.bg-secondary { background-color: hsl(var(--secondary)) !important; }
-.bg-muted { background-color: hsl(var(--muted)) !important; }
-.bg-accent { background-color: hsl(var(--accent)) !important; }
-.bg-destructive { background-color: hsl(var(--destructive)) !important; }
-.bg-surface-active { background-color: hsl(var(--surface-active)) !important; }
-.bg-surface-hover { background-color: hsl(var(--surface-hover)) !important; }
+@utility shadow-token { box-shadow: var(--shadow); }
 
-.text-foreground { color: hsl(var(--foreground)) !important; }
-.text-card-foreground { color: hsl(var(--card-foreground)) !important; }
-.text-popover-foreground { color: hsl(var(--popover-foreground)) !important; }
-.text-primary { color: hsl(var(--primary)) !important; }
-.text-primary-foreground { color: hsl(var(--primary-foreground)) !important; }
-.text-secondary-foreground { color: hsl(var(--secondary-foreground)) !important; }
-.text-muted-foreground { color: hsl(var(--muted-foreground)) !important; }
-.text-accent-foreground { color: hsl(var(--accent-foreground)) !important; }
-.text-destructive { color: hsl(var(--destructive)) !important; }
+/* ── Font utilities ──────────────────────────────────────────────────── */
+@utility font-ui   { font-family: "Hanken Grotesk", system-ui, sans-serif; }
+@utility font-mono { font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace; }
 
-.border-border { border-color: hsl(var(--border)) !important; }
-.border-primary { border-color: hsl(var(--primary)) !important; }
-
-.shadow-primary\/20 { --tw-shadow-color: hsl(var(--primary) / .2); }
-
-.hover\:bg-accent:hover { background-color: hsl(var(--accent)) !important; }
-.hover\:text-foreground:hover { color: hsl(var(--foreground)) !important; }
-.hover\:text-destructive:hover { color: hsl(var(--destructive)) !important; }
-.hover\:border-muted-foreground\/30:hover { border-color: hsl(var(--muted-foreground) / .3) !important; }
-
-.placeholder\:text-muted-foreground::placeholder { color: hsl(var(--muted-foreground)) !important; }
-
-/* Hide scrollbars on the canvas viewport — scroll still works, chevrons handle navigation */
+/* ── Canvas ──────────────────────────────────────────────────────────── */
 .canvas-viewport::-webkit-scrollbar { display: none; }
 .canvas-viewport { scrollbar-width: none; }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in { animation: fade-in 150ms ease-out; }
+/* ── Animations ──────────────────────────────────────────────────────── */
 
-/* Ensure @theme doesn't break spacing — Tailwind v4 needs this */
-@theme {
-  --spacing: 0.25rem;
-  --radius: 0.5rem;
+/* Pin drop — all keyframes include translate(-50%,-50%) to match settled pin's transform */
+@keyframes pp-drop {
+  0%   { opacity: .2; transform: translate(-50%,-50%) scale(.2); }
+  70%  { opacity: 1;  transform: translate(-50%,-50%) scale(1.15); }
+  100% { opacity: 1;  transform: translate(-50%,-50%) scale(1); }
 }
+
+/* Region box appear */
+@keyframes pp-dropbox {
+  0%   { opacity: 0; transform: scale(.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Modal / popover — transform only, never opacity-from-0 on always-visible content */
+@keyframes pp-pop {
+  0%   { transform: scale(.96) translateY(6px); }
+  100% { transform: scale(1)   translateY(0); }
+}
+
+/* Toast slide up */
+@keyframes pp-toast {
+  0%   { transform: translateX(-50%) translateY(12px); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0);    opacity: 1; }
+}
+
+/* Landing hero stagger */
+@keyframes pp-rise {
+  0%   { transform: translateY(13px); }
+  100% { transform: translateY(0); }
+}
+
+/* Loader spinner */
+@keyframes pp-spin { to { transform: rotate(360deg); } }
+
+/* Loader center pulse */
+@keyframes pp-ping {
+  0%   { transform: scale(1);   opacity: .8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+/* Progress bar indeterminate sweep */
+@keyframes pp-bar {
+  0%   { left: -40%; width: 40%; }
+  60%  { left: 100%; width: 40%; }
+  100% { left: 100%; width: 40%; }
+}
+
+@keyframes pp-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@utility animate-pp-drop    { animation: pp-drop    .3s cubic-bezier(.34,1.56,.64,1) forwards; }
+@utility animate-pp-dropbox { animation: pp-dropbox .26s cubic-bezier(.34,1.56,.64,1) forwards; }
+@utility animate-pp-pop     { animation: pp-pop     .14s ease-out forwards; }
+@utility animate-pp-toast   { animation: pp-toast   .25s ease-out forwards; }
+@utility animate-pp-rise    { animation: pp-rise    .4s  ease-out forwards; }
+@utility animate-pp-spin    { animation: pp-spin    .9s  linear infinite; }
+@utility animate-pp-ping    { animation: pp-ping    1.6s ease-out infinite; }
+@utility animate-pp-fade    { animation: pp-fade    .2s  ease-out forwards; }
+
+/* Stagger delays */
+@utility delay-60  { animation-delay: .06s; }
+@utility delay-120 { animation-delay: .12s; }
+@utility delay-180 { animation-delay: .18s; }
