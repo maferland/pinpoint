@@ -76,10 +76,11 @@ function NavLink({ href, children }: { href: string; children: ReactNode }) {
 /* ── Hero ────────────────────────────────────────────────────────────── */
 
 function Hero() {
-  const [tab, setTab] = useState<"terminal" | "claude">("terminal");
+  const [tab, setTab] = useState<"terminal" | "claude" | "demo">("terminal");
 
   const TERMINAL_CMD = "curl -fsSL https://pinpoint.maferland.com/install.sh | bash";
   const CLAUDE_CMD = "/pinpoint:install";
+  const DEMO_CMD = "pinpoint demo";
 
   return (
     <section className="py-20 text-center">
@@ -102,13 +103,20 @@ function Hero() {
         </p>
 
         {/* CTA row */}
-        <div className="flex items-center justify-center gap-3 mb-12">
+        <div className="flex items-center justify-center gap-3 mb-12 flex-wrap">
           <Button
             variant="accent"
             size="md"
             onClick={() => window.open("https://github.com/maferland/pinpoint", "_blank")}
           >
             Star on GitHub
+          </Button>
+          <Button
+            variant="surface"
+            size="md"
+            onClick={() => setTab("demo")}
+          >
+            Try the demo
           </Button>
         </div>
 
@@ -118,7 +126,7 @@ function Hero() {
           style={{ backgroundColor: "var(--bg2)" }}
         >
           <div className="flex gap-1 px-1.5 pt-1.5 border-b border-border" style={{ backgroundColor: "var(--surface)" }}>
-            {(["terminal", "claude"] as const).map((t) => (
+            {(["terminal", "claude", "demo"] as const).map((t) => (
               <button
                 key={t}
                 className={`px-3.5 py-2 font-mono text-[12px] font-medium rounded-t-[6px] transition-colors border-b-2 ${
@@ -128,18 +136,23 @@ function Hero() {
                 }`}
                 onClick={() => setTab(t)}
               >
-                {t === "terminal" ? "Terminal" : "Claude Code"}
+                {t === "terminal" ? "Terminal" : t === "claude" ? "Claude Code" : "Demo"}
               </button>
             ))}
           </div>
           <div className="relative px-4 py-3.5 pr-10">
             <pre className="font-mono text-[13px] text-txt leading-relaxed whitespace-pre-wrap m-0">
-              {tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD}
+              {tab === "terminal" ? TERMINAL_CMD : tab === "claude" ? CLAUDE_CMD : DEMO_CMD}
             </pre>
             <div className="absolute top-2.5 right-2.5">
-              <CopyButton text={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} />
+              <CopyButton text={tab === "terminal" ? TERMINAL_CMD : tab === "claude" ? CLAUDE_CMD : DEMO_CMD} />
             </div>
           </div>
+          {tab === "demo" && (
+            <p className="px-4 pb-3.5 text-[12px] text-faint leading-relaxed">
+              Opens a sample session in your browser with three starter pins on a real screenshot — no screenshot of your own required.
+            </p>
+          )}
         </div>
 
         {/* Product screenshot */}

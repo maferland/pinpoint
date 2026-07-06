@@ -240,8 +240,8 @@ export function AnnotatorApp() {
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas area + filmstrip column */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Canvas wrapper — flex so CanvasLayer's flex-1 root has a flex parent to grow into */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Canvas wrapper — relative anchors CompareCanvas's absolute inset-0; flex-col lets CanvasLayer's flex-1 root grow */}
+          <div className="flex-1 relative flex flex-col overflow-hidden">
           {activeSlot?.type === "compare" && reviewId ? (
             <CompareCanvas
               activeSlot={activeSlot}
