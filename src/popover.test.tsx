@@ -133,7 +133,7 @@ describe("Popover", () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it("does not delete a new pin on Escape, even when nothing was typed — Escape only closes", async () => {
+  it("deletes a new pin on Escape when nothing was ever committed — Escape closes, and cleans up the empty pin", async () => {
     const user = userEvent.setup();
     const onDelete = mock(() => {});
     const onClose = mock(() => {});
@@ -149,10 +149,10 @@ describe("Popover", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
     unmount();
-    expect(onDelete).not.toHaveBeenCalled();
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
-  it("does not delete a new pin on Escape after typing, discarding the draft instead", async () => {
+  it("deletes a new pin on Escape after typing — the draft was never committed, so there's nothing to keep", async () => {
     const user = userEvent.setup();
     const onDelete = mock(() => {});
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
@@ -172,7 +172,32 @@ describe("Popover", () => {
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalled();
     unmount();
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
+  it("does not delete an existing annotation on Escape, even after typing over its comment", async () => {
+    const user = userEvent.setup();
+    const onDelete = mock(() => {});
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    const onClose = mock(() => {});
+    const { unmount } = render(
+      <Popover
+        annotation={makeAnnotation({ comment: "original" })}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onClose={onClose}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    await user.click(textarea);
+    await user.clear(textarea);
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalled();
+    unmount();
     expect(onDelete).not.toHaveBeenCalled();
+    expect(onUpdate).not.toHaveBeenCalled();
   });
 
   it("deletes pin when an existing comment is cleared and saved with ⌘Enter", async () => {

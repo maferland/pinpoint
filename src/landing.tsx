@@ -81,7 +81,11 @@ function Hero() {
   const [tab, setTab] = useState<"terminal" | "claude">("terminal");
 
   const TERMINAL_CMD = "curl -fsSL https://pinpoint.maferland.com/install.sh | bash";
-  const CLAUDE_CMD = "/pinpoint:install";
+  const CLAUDE_CMD = [
+    "/plugin marketplace add maferland/pinpoint",
+    "/plugin install pinpoint@pinpoint-marketplace",
+    "/pinpoint:install",
+  ].join("\n");
 
   return (
     <section className="py-20 text-center">
@@ -143,7 +147,11 @@ function Hero() {
           </div>
           <div className="relative px-4 py-3.5 pr-10">
             <pre className="font-mono text-[13px] leading-relaxed whitespace-pre-wrap break-all m-0">
-              <TerminalLine command={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} prompt={tab === "terminal"} />
+              {(tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD).split("\n").map((line, i) => (
+                <div key={i}>
+                  <TerminalLine command={line} prompt={tab === "terminal"} />
+                </div>
+              ))}
             </pre>
             <div className="absolute top-2.5 right-2.5">
               <CopyButton text={tab === "terminal" ? TERMINAL_CMD : CLAUDE_CMD} />
