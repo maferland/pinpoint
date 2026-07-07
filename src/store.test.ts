@@ -138,6 +138,11 @@ describe("FileReviewStore attachments", () => {
     const attachmentPath = store.attachmentPath("oldest", attachment.id);
     expect(fs.existsSync(attachmentPath)).toBe(true);
 
+    // pruneOld evicts by file mtime, which can tie across a fast test loop on
+    // coarser filesystems — backdate explicitly so eviction order is deterministic.
+    const veryOld = new Date("2020-01-01T00:00:00Z");
+    fs.utimesSync(path.join(dir, "oldest.json"), veryOld, veryOld);
+
     for (let i = 0; i < 50; i++) {
       await store.save(makeReview(`filler-${i}`, { createdAt: `2026-01-${(i % 28) + 1}T00:00:00Z` }));
     }
