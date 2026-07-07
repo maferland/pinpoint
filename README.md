@@ -4,7 +4,7 @@
 
 <h1>Pinpoint</h1>
 
-<p>Point at what's wrong. Claude fixes it.</p>
+<p>Visual feedback for AI agents</p>
 
 </div>
 
@@ -14,19 +14,25 @@
   <img src="assets/screenshot-light.png" width="720" alt="Pinpoint annotation UI">
 </p>
 
-Take a screenshot. Run `/pinpoint:review screenshot.png`. Click on what's wrong, type a sentence, hit Send. The agent gets structured coordinates and your comment, and fixes each one. It works on any visual surface: web pages, simulators, native apps, Storybook, mockups. No changes needed to the target app.
+The best way to provide visual feedback is to your AI agent. Pinpoint allows
+you to share contextual feedback with your agent by dropping pins and comments
+on screenshots, mockups, or any visual content.
 
-Reviews export to a portable `.pinpoint.zip`, so you can hand one to a designer or PM, they add pins, you re-import. No need to lock everyone into the same agent.
+Works on anything visual: web pages, simulators, native apps, Storybook,
+mockups.
+
+Reviews export to a `.pinpoint.zip` too. Hand it to a designer or PM, they drop
+pins, you re-import.
 
 ## Try it live
 
-Nothing to install. **[pinpoint.maferland.com/try](https://pinpoint.maferland.com/try.html)**: drop a pin, type a comment, hit Send.
+Nothing to install.
+**[pinpoint.maferland.com/try](https://pinpoint.maferland.com/try.html)**: drop
+a pin, type a comment, hit Send.
 
 ## Install
 
-Two paths. Pick whichever you live in.
-
-### From inside Claude Code
+### Claude Code
 
 ```
 /plugin marketplace add maferland/pinpoint
@@ -34,9 +40,11 @@ Two paths. Pick whichever you live in.
 /pinpoint:install
 ```
 
-The first two add the marketplace and install the plugin (slash commands + skill). The third builds the CLI binary, links it onto PATH, and registers the MCP server. Restart Claude Code once it finishes.
+The first two add the marketplace and install the plugin (slash commands +
+skill). The third builds the CLI binary and links it onto PATH. Restart Claude
+Code once it finishes.
 
-### From the terminal
+### CLI only
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/maferland/pinpoint/main/install.sh | bash
@@ -48,20 +56,19 @@ curl -fsSL https://raw.githubusercontent.com/maferland/pinpoint/main/install.sh 
 ```bash
 git clone https://github.com/maferland/pinpoint.git ~/.pinpoint
 cd ~/.pinpoint && bun install && bun run build
-bun link                                                          # exposes `pinpoint` on PATH
-claude plugin marketplace add ~/.pinpoint                         # registers the slash command (Claude Code only)
+bun link                                                  # exposes `pinpoint` on PATH
+claude plugin marketplace add ~/.pinpoint                 # registers the slash command (Claude Code only)
 claude plugin install pinpoint@pinpoint-marketplace
-claude mcp add pinpoint -- bun ~/.pinpoint/src/main.ts --stdio    # MCP server, works with any MCP-capable agent
 ```
+
 </details>
 
 Requires [Bun](https://bun.sh) 1.2+.
 
-Once installed, `pinpoint demo` opens a local sandbox session with starter pins on a real screenshot. No target image needed to try the real CLI loop.
+Once installed, `pinpoint demo` opens a local sandbox session with starter pins
+on a real screenshot. No target image needed to try the real CLI loop.
 
 ## Use it with your agent
-
-Pinpoint speaks two protocols. Pick the one your agent supports.
 
 ### Claude Code: slash command
 
@@ -69,18 +76,8 @@ Pinpoint speaks two protocols. Pick the one your agent supports.
 /pinpoint:review /tmp/screenshot.png
 ```
 
-The browser opens, you annotate, hit **Send** in the toolbar, the structured JSON lands in the conversation.
-
-### Anywhere with MCP: Cursor, Aider, Continue, raw API, etc.
-
-Register the MCP server once (`claude mcp add pinpoint -- ...` above, or your agent's equivalent), then the agent gets four tools:
-
-| Tool | Description |
-|------|-------------|
-| `create_review` | Create a review and open the browser. |
-| `add_image` | Add another screenshot to an existing review. |
-| `get_annotations` | Read structured feedback — coordinates and comments. |
-| `list_reviews` | List all review sessions. |
+The browser opens, you annotate, hit **Send** in the toolbar, the structured
+JSON lands in the conversation.
 
 ### Anywhere with a shell: direct CLI
 
@@ -88,7 +85,8 @@ Register the MCP server once (`claude mcp add pinpoint -- ...` above, or your ag
 pinpoint review <image>... [--context "..."] [--port N]
 ```
 
-Spawns the annotation server, opens the browser, blocks until you hit **Send** in the toolbar, prints the structured JSON to stdout. Pipe it wherever you want.
+Spawns the annotation server, opens the browser, blocks until you hit **Send**
+in the toolbar, prints the structured JSON to stdout. Pipe it wherever you want.
 
 ## How the annotation UI works
 
@@ -97,7 +95,9 @@ Spawns the annotation server, opens the browser, blocks until you hit **Send** i
 - **Click a pin** → popover with a textarea, type your note
 - **⌘Enter** saves, **Esc** cancels
 - Multiple screenshots → filmstrip with arrow keys to switch
-- The send button in the toolbar describes itself: **Looks good** if you've made no annotations, **Send 3 comments** (or whatever the count is) if you have. Either way it closes the loop and returns control to the agent.
+- The send button in the toolbar describes itself: **Looks good** if you've made
+  no annotations, **Send 3 comments** (or whatever the count is) if you have.
+  Either way it closes the loop and returns control to the agent.
 
 What Pinpoint sends back:
 
@@ -107,7 +107,7 @@ What Pinpoint sends back:
     {
       "number": 1,
       "image": "/tmp/screenshot.png",
-      "box": { "x": 10.2, "y": 5.3, "width": 35.0, "height": 12.5 },
+      "box": {"x": 10.2, "y": 5.3, "width": 35.0, "height": 12.5},
       "comment": "Button text is truncated on mobile"
     }
   ]
@@ -118,7 +118,8 @@ Coordinates are percentages, so they're resolution-independent.
 
 ## Sharing a session
 
-A review packages into a `.pinpoint.zip` (review manifest plus the raw image bytes). Open it on any machine that has Pinpoint installed.
+A review packages into a `.pinpoint.zip` (review manifest plus the raw image
+bytes). Open it on any machine that has Pinpoint installed.
 
 ```bash
 pinpoint export <reviewId>                            # writes <reviewId>.pinpoint.zip
@@ -126,11 +127,16 @@ pinpoint open path/to/bundle.pinpoint.zip             # someone hands you a sess
 pinpoint open path/to/bundle.pinpoint.zip --mode new  # keep your local copy untouched
 ```
 
-The ⬇ button in the toolbar exports the live session straight to your downloads folder. See [the skill docs](skills/using-pinpoint/SKILL.md) for the full flow.
+The ⬇ button in the toolbar exports the live session straight to your downloads
+folder. See [the skill docs](skills/using-pinpoint/SKILL.md) for the full flow.
 
 ## Credits
 
-Architecture inspired by [plannotator](https://github.com/backnotprop/plannotator): slash command shells out to a CLI binary, blocks until the user finishes their part, pipes structured stdout back into the conversation. Pinpoint applies that pattern to image annotation, and adds a portable session format on top.
+Architecture inspired by
+[plannotator](https://github.com/backnotprop/plannotator): slash command shells
+out to a CLI binary, blocks until the user finishes their part, pipes structured
+stdout back into the conversation. Pinpoint applies that pattern to image
+annotation, and adds a portable session format on top.
 
 See [CHANGELOG.md](CHANGELOG.md) for release history.
 

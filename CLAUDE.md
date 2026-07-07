@@ -1,13 +1,13 @@
 # Pinpoint
 
-Browser annotation UI for visual feedback. Primary surface: `/pinpoint:review` slash command via the `pinpoint` CLI binary. Fallback: MCP server (registered as `pinpoint` via `claude mcp add`) for non-interactive scripting.
+Browser annotation UI for visual feedback. Primary surface: `/pinpoint:review` slash command via the `pinpoint` CLI binary. Direct CLI invocation works from any shell for non-interactive scripting.
 
 ## Commands
 
 ```bash
 bun install          # install deps
 bun test             # run unit/integration tests (bun:test)
-bun run build        # typecheck → vite singlefile → bun bundle (CLI + MCP + UI)
+bun run build        # typecheck → vite singlefile → bun bundle (CLI + UI)
 bun run dev          # watch mode
 bun run typecheck    # tsc --noEmit
 verdict run          # LLM behavior tests for the using-pinpoint skill
@@ -25,17 +25,15 @@ pinpoint export <reviewId> [--output FILE|-]
 # Open a .pinpoint.zip from someone else — prompts for merge mode if id collides
 pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
 
-# Server modes (legacy / MCP fallback)
-bun src/main.ts --stdio   # MCP stdio + HTTP server on :4747
-bun src/main.ts           # HTTP-only mode
+# HTTP-only mode (legacy / dev)
+bun src/main.ts                     # starts on :4747
 PINPOINT_PORT=8080 bun src/main.ts  # custom port
 ```
 
 ## Architecture
 
 - `src/cli.ts` — `pinpoint review` CLI; spawns HTTP server, opens browser, blocks on `waitForFinalize`, prints JSON to stdout
-- `src/main.ts` — HTTP server (UI + REST API: GET review, GET image, PUT annotations, POST finalize) + MCP entrypoint
-- `src/server.ts` — MCP tool registry (create_review, add_image, get_annotations, list_reviews)
+- `src/main.ts` — HTTP server (UI + REST API: GET review, GET image, PUT annotations, POST finalize)
 - `src/store.ts` — file-based review persistence under `os.tmpdir()/pinpoint:reviews/`
 - `commands/pinpoint:review.md` — slash command (`disable-model-invocation: true`) that shells out to `pinpoint review`
 - `skills/using-pinpoint/SKILL.md` — guidance for Claude on when/how to use the slash command
