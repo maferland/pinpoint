@@ -14,22 +14,13 @@
   <img src="assets/screenshot-light.png" width="720" alt="Pinpoint annotation UI">
 </p>
 
-<!-- TODO: replace screenshot above with a short GIF of the full loop:
-     screenshot → pin → comment → hit Send → Claude applies the fix. -->
+Take a screenshot. Run `/pinpoint:review screenshot.png`. Click on what's wrong, type a sentence, hit Send. The agent gets structured coordinates and your comment, and fixes each one. It works on any visual surface: web pages, simulators, native apps, Storybook, mockups. No changes needed to the target app.
 
-You make a UI change. Take a screenshot. Run `/pinpoint:review screenshot.png`. The browser opens. You click on what's wrong, type a sentence, hit Send. The agent picks up structured coordinates and your comment, and works each annotation as a discrete fix. Round-trip is usually under a minute.
+Reviews export to a portable `.pinpoint.zip`, so you can hand one to a designer or PM, they add pins, you re-import. No need to lock everyone into the same agent.
 
-Pinpoint works with any visual surface: web pages, iOS simulators, macOS apps, Storybook, design mockups. No target app modification needed.
+## Try it live
 
-A review packages into a portable `.pinpoint.zip` you can hand to a designer, a PM, or anyone else with Pinpoint installed. They add their pins, send it back, you re-import. Visual review without locking everyone into the same agent.
-
-## Try the loop in ten seconds (after install)
-
-```bash
-pinpoint demo
-```
-
-A sample session opens in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit **Send** in the toolbar to see the structured JSON come back.
+Nothing to install. **[pinpoint.maferland.com/try](https://pinpoint.maferland.com/try.html)**: drop a pin, type a comment, hit Send.
 
 ## Install
 
@@ -65,6 +56,8 @@ claude mcp add pinpoint -- bun ~/.pinpoint/src/main.ts --stdio    # MCP server, 
 </details>
 
 Requires [Bun](https://bun.sh) 1.2+.
+
+Once installed, `pinpoint demo` opens a local sandbox session with starter pins on a real screenshot. No target image needed to try the real CLI loop.
 
 ## Use it with your agent
 
@@ -135,13 +128,11 @@ pinpoint open path/to/bundle.pinpoint.zip --mode new  # keep your local copy unt
 
 The ⬇ button in the toolbar exports the live session straight to your downloads folder. See [the skill docs](skills/using-pinpoint/SKILL.md) for the full flow.
 
-## What's new
-
-See [CHANGELOG.md](CHANGELOG.md). Current version: v0.6.0.
-
 ## Credits
 
 Architecture inspired by [plannotator](https://github.com/backnotprop/plannotator): slash command shells out to a CLI binary, blocks until the user finishes their part, pipes structured stdout back into the conversation. Pinpoint applies that pattern to image annotation, and adds a portable session format on top.
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
