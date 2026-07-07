@@ -1,14 +1,18 @@
+import { useState } from "react";
 import type { PinpointAnnotation } from "./types.ts";
 import { type ReviewContext, parseContext } from "./context.ts";
+import { attachmentUrl } from "./api.ts";
+import { AttachmentLightbox } from "./attachment-lightbox.tsx";
 
 interface CommentsRailProps {
+  reviewId: string;
   annotations: PinpointAnnotation[];
   selectedId: string | null;
   context?: string;
   onSelect: (id: string | null) => void;
 }
 
-export function CommentsRail({ annotations, selectedId, context, onSelect }: CommentsRailProps) {
+export function CommentsRail({ reviewId, annotations, selectedId, context, onSelect }: CommentsRailProps) {
   const ctx = parseContext(context);
 
   return (
@@ -58,6 +62,7 @@ export function CommentsRail({ annotations, selectedId, context, onSelect }: Com
             {annotations.map((ann) => (
               <CommentCard
                 key={ann.id}
+                reviewId={reviewId}
                 annotation={ann}
                 selected={ann.id === selectedId}
                 onClick={() => onSelect(ann.id === selectedId ? null : ann.id)}
@@ -150,43 +155,70 @@ function MetaRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 function CommentCard({
+  reviewId,
   annotation,
   selected,
   onClick,
 }: {
+  reviewId: string;
   annotation: PinpointAnnotation;
   selected: boolean;
   onClick: () => void;
 }) {
   const isBox = annotation.box &&
     (annotation.box.width > 7 || annotation.box.height > 7);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
 
   return (
-    <button
-      className="w-full text-left rounded-[10px] border p-3 transition-all"
-      style={{
-        backgroundColor: selected ? "var(--accent-soft)" : "var(--bg)",
-        borderColor: selected ? "var(--accent)" : "var(--border)",
-      }}
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-2 mb-1.5">
-        <PinBadge number={annotation.number} />
-        <span className="font-mono text-[10px] font-semibold text-faint tracking-wide uppercase">
-          {isBox ? "Region" : "Pin"}
-        </span>
-        <span className="ml-auto font-mono text-[10px] text-faint">
-          {Math.round(annotation.pin.x)}%, {Math.round(annotation.pin.y)}%
-        </span>
-      </div>
-      {annotation.comment ? (
-        <p className="text-[12px] text-muted leading-relaxed line-clamp-3">
-          {annotation.comment}
-        </p>
-      ) : (
-        <p className="text-[12px] text-faint italic">Empty — click to add a comment</p>
+    <>
+      <button
+        className="w-full text-left rounded-[10px] border p-3 transition-all"
+        style={{
+          backgroundColor: selected ? "var(--accent-soft)" : "var(--bg)",
+          borderColor: selected ? "var(--accent)" : "var(--border)",
+        }}
+        onClick={onClick}
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <PinBadge number={annotation.number} />
+          <span className="font-mono text-[10px] font-semibold text-faint tracking-wide uppercase">
+            {isBox ? "Region" : "Pin"}
+          </span>
+          <span className="ml-auto font-mono text-[10px] text-faint">
+            {Math.round(annotation.pin.x)}%, {Math.round(annotation.pin.y)}%
+          </span>
+        </div>
+        {annotation.comment ? (
+          <p className="text-[12px] text-muted leading-relaxed line-clamp-3">
+            {annotation.comment}
+          </p>
+        ) : (
+          <p className="text-[12px] text-faint italic">Empty — click to add a comment</p>
+        )}
+        {annotation.attachments && annotation.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {annotation.attachments.map((attachment) => (
+              <img
+                key={attachment.id}
+                src={attachmentUrl(reviewId, attachment.id)}
+                alt="Pasted attachment"
+                className="object-cover rounded-[5px] border border-border cursor-zoom-in"
+                style={{ width: 40, height: 40 }}
+                onClick={(e) => { e.stopPropagation(); setLightboxId(attachment.id); }}
+              />
+            ))}
+          </div>
+        )}
+      </button>
+
+      {lightboxId && (
+        <AttachmentLightbox
+          reviewId={reviewId}
+          attachmentId={lightboxId}
+          onClose={() => setLightboxId(null)}
+        />
       )}
-    </button>
+    </>
   );
 }
 

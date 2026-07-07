@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { PinpointAnnotation } from "./types.ts";
+import type { AnnotationAttachment, PinpointAnnotation } from "./types.ts";
+import { attachmentUrl, deleteAttachment, uploadAttachment } from "./api.ts";
+import { AttachmentLightbox } from "./attachment-lightbox.tsx";
 
 interface PopoverProps {
+  reviewId: string;
   annotation: PinpointAnnotation;
   x: number;
   y: number;
@@ -13,16 +16,19 @@ interface PopoverProps {
 function useFlushSave(
   draft: string,
   committed: string,
+  hasAttachments: boolean,
   onUpdate: (updates: Partial<PinpointAnnotation>) => void,
   onDelete: () => void
 ) {
   const draftRef = useRef(draft);
   const committedRef = useRef(committed);
+  const hasAttachmentsRef = useRef(hasAttachments);
   const onUpdateRef = useRef(onUpdate);
   const onDeleteRef = useRef(onDelete);
   const cancelRef = useRef(false);
   useLayoutEffect(() => { draftRef.current = draft; }, [draft]);
   useEffect(() => { committedRef.current = committed; }, [committed]);
+  useLayoutEffect(() => { hasAttachmentsRef.current = hasAttachments; }, [hasAttachments]);
   useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
   useEffect(() => { onDeleteRef.current = onDelete; }, [onDelete]);
 
@@ -39,25 +45,39 @@ function useFlushSave(
   useEffect(() => () => {
     if (cancelRef.current) {
       // Escape: discard the draft. Only clean up if nothing was ever committed —
-      // an annotation with real saved content is never deleted by Escape.
-      if (committedRef.current.trim() === "") onDeleteRef.current();
+      // an annotation with real saved content (text or a pasted image) is never deleted by Escape.
+      if (committedRef.current.trim() === "" && !hasAttachmentsRef.current) onDeleteRef.current();
       return;
     }
     flush();
-    if (draftRef.current.trim() === "") onDeleteRef.current();
+    if (draftRef.current.trim() === "" && !hasAttachmentsRef.current) onDeleteRef.current();
   }, [flush]);
 
   return { flush, cancel };
 }
 
-export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: PopoverProps) {
+interface PendingUpload {
+  previewUrl: string;
+}
+
+export function Popover({ reviewId, annotation, x, y, onUpdate, onDelete, onClose }: PopoverProps) {
   const [comment, setComment] = useState(annotation.comment);
+  const [attachments, setAttachments] = useState<AnnotationAttachment[]>(annotation.attachments ?? []);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNew = !annotation.comment;
-  const { flush, cancel } = useFlushSave(comment, annotation.comment, onUpdate, onDelete);
+  const { flush, cancel } = useFlushSave(
+    comment,
+    annotation.comment,
+    attachments.length > 0,
+    onUpdate,
+    onDelete
+  );
   const isBox = annotation.box && (annotation.box.width > 7 || annotation.box.height > 7);
 
   useEffect(() => { setComment(annotation.comment); }, [annotation.comment]);
+  useEffect(() => { setAttachments(annotation.attachments ?? []); }, [annotation.attachments]);
   useEffect(() => { if (isNew) textareaRef.current?.focus(); }, [isNew]);
   useEffect(() => {
     const timer = setTimeout(flush, 400);
@@ -69,6 +89,49 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   }, [comment]);
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const imageItems = Array.from(e.clipboardData.items).filter((item) => item.type.startsWith("image/"));
+      if (imageItems.length === 0) return;
+      e.preventDefault();
+
+      for (const item of imageItems) {
+        const blob = item.getAsFile();
+        if (!blob) continue;
+        const previewUrl = URL.createObjectURL(blob);
+        setPendingUploads((prev) => [...prev, { previewUrl }]);
+
+        uploadAttachment(reviewId, blob)
+          .then((attachment) => {
+            setPendingUploads((prev) => prev.filter((p) => p.previewUrl !== previewUrl));
+            URL.revokeObjectURL(previewUrl);
+            setAttachments((prev) => {
+              const next = [...prev, attachment];
+              onUpdate({ attachments: next });
+              return next;
+            });
+          })
+          .catch(() => {
+            setPendingUploads((prev) => prev.filter((p) => p.previewUrl !== previewUrl));
+            URL.revokeObjectURL(previewUrl);
+          });
+      }
+    },
+    [reviewId, onUpdate]
+  );
+
+  const handleRemoveAttachment = useCallback(
+    (attachmentId: string) => {
+      setAttachments((prev) => {
+        const next = prev.filter((a) => a.id !== attachmentId);
+        onUpdate({ attachments: next });
+        return next;
+      });
+      deleteAttachment(reviewId, attachmentId).catch(() => {});
+    },
+    [reviewId, onUpdate]
+  );
 
   const handleBlur = useCallback(
     (e: React.FocusEvent) => {
@@ -125,7 +188,7 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
         </div>
 
         {/* Textarea */}
-        <div className="px-3 pt-2.5 pb-2">
+        <div className="px-3 pt-2.5 pb-0">
           <textarea
             ref={textareaRef}
             data-testid="popover-textarea"
@@ -136,8 +199,49 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
             onChange={(e) => setComment(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={handleBlur}
+            onPaste={handlePaste}
           />
         </div>
+
+        {/* Attachment chips — pasted images shown below the textarea, Slack-composer style */}
+        {(attachments.length > 0 || pendingUploads.length > 0) && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-0.5 pb-2.5">
+            {attachments.map((attachment) => (
+              <div key={attachment.id} className="relative group shrink-0" style={{ width: 56, height: 56 }}>
+                <button
+                  type="button"
+                  aria-label="View attachment full size"
+                  className="w-full h-full block cursor-zoom-in"
+                  onClick={() => setLightboxId(attachment.id)}
+                >
+                  <img
+                    src={attachmentUrl(reviewId, attachment.id)}
+                    alt="Pasted attachment"
+                    className="w-full h-full object-cover rounded-[6px] border border-border"
+                  />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove attachment"
+                  className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full text-white text-[11px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: "var(--accent)" }}
+                  onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(attachment.id); }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {pendingUploads.map((pending) => (
+              <img
+                key={pending.previewUrl}
+                src={pending.previewUrl}
+                alt="Uploading attachment"
+                className="shrink-0 object-cover rounded-[6px] border border-border animate-pulse"
+                style={{ width: 56, height: 56, opacity: 0.6 }}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center px-3 pb-2.5 gap-2">
@@ -157,6 +261,14 @@ export function Popover({ annotation, x, y, onUpdate, onDelete, onClose }: Popov
           </button>
         </div>
       </div>
+
+      {lightboxId && (
+        <AttachmentLightbox
+          reviewId={reviewId}
+          attachmentId={lightboxId}
+          onClose={() => setLightboxId(null)}
+        />
+      )}
     </div>
   );
 }

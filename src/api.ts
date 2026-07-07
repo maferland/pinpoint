@@ -1,4 +1,4 @@
-import type { PinpointAnnotation, PinpointReview } from "./types.ts";
+import type { AnnotationAttachment, PinpointAnnotation, PinpointReview } from "./types.ts";
 
 const REVIEW_PATH_RE = /\/review\/([a-zA-Z0-9_-]+)/;
 
@@ -30,6 +30,25 @@ export async function saveAnnotations(
     body: JSON.stringify(annotations),
   });
   if (!res.ok) throw new Error(`saveAnnotations failed: ${res.status}`);
+}
+
+export function attachmentUrl(reviewId: string, attachmentId: string): string {
+  return url(`/api/review/${reviewId}/attachments?id=${attachmentId}`);
+}
+
+export async function uploadAttachment(reviewId: string, blob: Blob): Promise<AnnotationAttachment> {
+  const res = await fetch(url(`/api/review/${reviewId}/attachments`), {
+    method: "POST",
+    headers: { "Content-Type": blob.type || "application/octet-stream" },
+    body: blob,
+  });
+  if (!res.ok) throw new Error(`uploadAttachment failed: ${res.status}`);
+  return res.json() as Promise<AnnotationAttachment>;
+}
+
+export async function deleteAttachment(reviewId: string, attachmentId: string): Promise<void> {
+  const res = await fetch(attachmentUrl(reviewId, attachmentId), { method: "DELETE" });
+  if (!res.ok) throw new Error(`deleteAttachment failed: ${res.status}`);
 }
 
 export async function finalizeReview(reviewId: string): Promise<void> {

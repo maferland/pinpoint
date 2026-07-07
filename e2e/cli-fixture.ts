@@ -31,7 +31,17 @@ interface CliFixture {
   stdoutSoFar(): string;
   stderrSoFar(): string;
   /** Wait for the cli to exit and return its parsed JSON output. */
-  finalized(): Promise<{ context?: string; images: { path: string; width: number; height: number }[]; annotations: { number: number; comment: string; pin: { x: number; y: number }; box?: unknown }[] }>;
+  finalized(): Promise<{
+    context?: string;
+    images: { path: string; width: number; height: number }[];
+    annotations: {
+      number: number;
+      comment: string;
+      pin: { x: number; y: number };
+      box?: unknown;
+      attachments?: { path: string; width: number; height: number }[];
+    }[];
+  }>;
 }
 
 interface PinpointFixtures {

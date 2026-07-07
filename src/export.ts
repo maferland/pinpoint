@@ -1,11 +1,13 @@
 import fs from "fs";
 import path from "path";
-import type { ImageInfo, PinpointAnnotation, PinpointReview } from "./types.js";
+import type { AnnotationAttachment, ImageInfo, PinpointAnnotation, PinpointReview } from "./types.js";
 import { generateId } from "./util.js";
 import { readZip, writeZip, type ZipEntry } from "./zip.js";
+import type { FileReviewStore } from "./store.js";
 
 const MANIFEST_NAME = "review.json";
 const IMAGE_PREFIX = "images/";
+const ATTACHMENT_PREFIX = "attachments/";
 
 export interface BundleImage {
   name: string;
@@ -45,7 +47,7 @@ function safeFilename(name: string): string {
   return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export async function serialize(review: PinpointReview): Promise<Buffer> {
+export async function serialize(review: PinpointReview, store: FileReviewStore): Promise<Buffer> {
   const images: BundleImage[] = [];
   const imageEntries: ZipEntry[] = [];
 
@@ -63,6 +65,14 @@ export async function serialize(review: PinpointReview): Promise<Buffer> {
     });
   }
 
+  const attachmentEntries: ZipEntry[] = [];
+  for (const ann of review.annotations) {
+    for (const attachment of ann.attachments ?? []) {
+      const bytes = await fs.promises.readFile(store.attachmentPath(review.id, attachment.id));
+      attachmentEntries.push({ name: `${ATTACHMENT_PREFIX}${ann.id}-${attachment.id}`, data: bytes });
+    }
+  }
+
   const manifest: BundleManifest = {
     kind: "pinpoint-export",
     version: "1.0",
@@ -77,6 +87,7 @@ export async function serialize(review: PinpointReview): Promise<Buffer> {
   return writeZip([
     { name: MANIFEST_NAME, data: Buffer.from(JSON.stringify(manifest, null, 2), "utf-8") },
     ...imageEntries,
+    ...attachmentEntries,
   ]);
 }
 
@@ -125,10 +136,38 @@ export interface DeserializeOptions {
   imageDir: string;
   mode: MergeMode;
   existing?: PinpointReview | null;
+  store: FileReviewStore;
+}
+
+// Attachment ids only resolve within their own review, so importing re-saves the
+// bundled bytes under the target review and issues fresh ids (mirrors image handling).
+async function restoreAttachments(
+  annotations: PinpointAnnotation[],
+  targetReviewId: string,
+  imageBytes: Map<string, Buffer>,
+  store: FileReviewStore
+): Promise<PinpointAnnotation[]> {
+  const result: PinpointAnnotation[] = [];
+  for (const ann of annotations) {
+    if (!ann.attachments || ann.attachments.length === 0) {
+      result.push(ann);
+      continue;
+    }
+    const restored: AnnotationAttachment[] = [];
+    for (const attachment of ann.attachments) {
+      const zipName = `${ATTACHMENT_PREFIX}${ann.id}-${attachment.id}`;
+      const bytes = imageBytes.get(zipName);
+      if (!bytes) throw new Error(`Bundle missing attachment: ${zipName}`);
+      const saved = await store.saveAttachment(targetReviewId, bytes);
+      restored.push({ id: saved.id, width: attachment.width, height: attachment.height });
+    }
+    result.push({ ...ann, attachments: restored });
+  }
+  return result;
 }
 
 export async function deserialize(opts: DeserializeOptions): Promise<PinpointReview> {
-  const { bundle, imageDir, mode, existing } = opts;
+  const { bundle, imageDir, mode, existing, store } = opts;
   const { manifest, imageBytes } = bundle;
   await fs.promises.mkdir(imageDir, { recursive: true });
 
@@ -147,9 +186,12 @@ export async function deserialize(opts: DeserializeOptions): Promise<PinpointRev
     });
   }
 
+  const id = mode === "append" && existing ? existing.id : mode === "new" ? generateId() : manifest.id;
+  const restoredAnnotations = await restoreAttachments(manifest.annotations, id, imageBytes, store);
+
   if (mode === "append" && existing) {
     const baseNumber = existing.annotations.reduce((m, a) => Math.max(m, a.number), 0);
-    const renumbered = manifest.annotations.map((a, i) => ({
+    const renumbered = restoredAnnotations.map((a, i) => ({
       ...a,
       id: generateId(),
       number: baseNumber + i + 1,
@@ -160,13 +202,12 @@ export async function deserialize(opts: DeserializeOptions): Promise<PinpointRev
     };
   }
 
-  const id = mode === "new" ? generateId() : manifest.id;
   return {
     version: "1.0",
     id,
     images: writtenImages,
     context: manifest.context,
     createdAt: mode === "new" ? new Date().toISOString() : manifest.createdAt,
-    annotations: manifest.annotations,
+    annotations: restoredAnnotations,
   };
 }

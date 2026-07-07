@@ -93,3 +93,56 @@ describe("FileReviewStore", () => {
     });
   });
 });
+
+const ONE_PX_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64"
+);
+
+describe("FileReviewStore attachments", () => {
+  let dir: string;
+  let store: FileReviewStore;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-test-"));
+    store = new FileReviewStore(dir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("saves an attachment and returns its sniffed dimensions", async () => {
+    await store.save(makeReview("rev1"));
+    const attachment = await store.saveAttachment("rev1", ONE_PX_PNG);
+    expect(attachment.width).toBe(1);
+    expect(attachment.height).toBe(1);
+    expect(fs.readFileSync(store.attachmentPath("rev1", attachment.id))).toEqual(ONE_PX_PNG);
+  });
+
+  it("deletes an attachment", async () => {
+    await store.save(makeReview("rev1"));
+    const attachment = await store.saveAttachment("rev1", ONE_PX_PNG);
+    await store.deleteAttachment("rev1", attachment.id);
+    expect(fs.existsSync(store.attachmentPath("rev1", attachment.id))).toBe(false);
+  });
+
+  it("rejects attachment ids that attempt path traversal", () => {
+    expect(() => store.attachmentPath("rev1", "../../etc/passwd")).toThrow();
+    expect(() => store.attachmentPath("../escape", "abc")).toThrow();
+  });
+
+  it("removes a review's attachments directory when it is pruned", async () => {
+    await store.save(makeReview("oldest", { createdAt: "2020-01-01T00:00:00Z" }));
+    const attachment = await store.saveAttachment("oldest", ONE_PX_PNG);
+    const attachmentPath = store.attachmentPath("oldest", attachment.id);
+    expect(fs.existsSync(attachmentPath)).toBe(true);
+
+    for (let i = 0; i < 50; i++) {
+      await store.save(makeReview(`filler-${i}`, { createdAt: `2026-01-${(i % 28) + 1}T00:00:00Z` }));
+    }
+
+    expect(await store.load("oldest")).toBeNull();
+    expect(fs.existsSync(attachmentPath)).toBe(false);
+  });
+});

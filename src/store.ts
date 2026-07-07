@@ -2,6 +2,8 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import type { PinpointReview } from "./types.js";
+import { generateId } from "./util.js";
+import { sniffDimensions } from "./image-sniff.js";
 
 const MAX_REVIEWS = 50;
 
@@ -22,9 +24,11 @@ export interface ReviewStore {
 
 export class FileReviewStore implements ReviewStore {
   private dir: string;
+  private attachmentsDir: string;
 
   constructor(dir?: string) {
     this.dir = dir ?? path.join(os.tmpdir(), "pinpoint-reviews");
+    this.attachmentsDir = path.join(this.dir, "attachments");
     fs.mkdirSync(this.dir, { recursive: true });
   }
 
@@ -88,12 +92,37 @@ export class FileReviewStore implements ReviewStore {
       stats.sort((a, b) => a.mtime - b.mtime);
       const toRemove = stats.slice(0, stats.length - MAX_REVIEWS);
       await Promise.all(
-        toRemove.map((f) =>
-          fs.promises.unlink(path.join(this.dir, f.name)).catch(() => {})
-        )
+        toRemove.map(async (f) => {
+          await fs.promises.unlink(path.join(this.dir, f.name)).catch(() => {});
+          const reviewId = f.name.replace(/\.json$/, "");
+          await fs.promises.rm(path.join(this.attachmentsDir, reviewId), { recursive: true, force: true }).catch(() => {});
+        })
       );
     } catch {
       // best-effort cleanup
     }
+  }
+
+  attachmentPath(reviewId: string, attachmentId: string): string {
+    validateId(reviewId);
+    validateId(attachmentId);
+    const filePath = path.join(this.attachmentsDir, reviewId, attachmentId);
+    if (!path.resolve(filePath).startsWith(path.resolve(this.attachmentsDir) + path.sep)) {
+      throw new Error("Invalid attachment path");
+    }
+    return filePath;
+  }
+
+  async saveAttachment(reviewId: string, buffer: Buffer): Promise<{ id: string; width: number; height: number }> {
+    const id = generateId();
+    const filePath = this.attachmentPath(reviewId, id);
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.writeFile(filePath, buffer);
+    const { width, height } = sniffDimensions(buffer);
+    return { id, width, height };
+  }
+
+  async deleteAttachment(reviewId: string, attachmentId: string): Promise<void> {
+    await fs.promises.unlink(this.attachmentPath(reviewId, attachmentId)).catch(() => {});
   }
 }

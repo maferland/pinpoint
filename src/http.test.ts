@@ -118,6 +118,56 @@ describe("createHttpServer", () => {
     });
   });
 
+  describe("POST/GET/DELETE /api/review/:id/attachments", () => {
+    it("uploads, serves, and deletes an attachment", async () => {
+      const upload = await fetch(`${baseUrl}/api/review/test-review/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "image/png" },
+        body: TEST_PNG,
+      });
+      expect(upload.status).toBe(200);
+      const attachment = await upload.json() as { id: string; width: number; height: number };
+      expect(attachment.width).toBe(100);
+      expect(attachment.height).toBe(100);
+
+      const get = await fetch(`${baseUrl}/api/review/test-review/attachments?id=${attachment.id}`);
+      expect(get.status).toBe(200);
+      expect(get.headers.get("content-type")).toBe("image/png");
+      const buf = Buffer.from(await get.arrayBuffer());
+      expect(buf[0]).toBe(0x89);
+
+      const del = await fetch(`${baseUrl}/api/review/test-review/attachments?id=${attachment.id}`, {
+        method: "DELETE",
+      });
+      expect(del.status).toBe(200);
+      expect((await fetch(`${baseUrl}/api/review/test-review/attachments?id=${attachment.id}`)).status).toBe(404);
+    });
+
+    it("POST returns 404 for missing review", async () => {
+      const res = await fetch(`${baseUrl}/api/review/nope/attachments`, {
+        method: "POST", headers: { "Content-Type": "image/png" }, body: TEST_PNG,
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns 404 for an unknown attachment id", async () => {
+      const res = await fetch(`${baseUrl}/api/review/test-review/attachments?id=nonexistent`);
+      expect(res.status).toBe(404);
+    });
+
+    it("GET returns 404 when the id query param is missing", async () => {
+      const res = await fetch(`${baseUrl}/api/review/test-review/attachments`);
+      expect(res.status).toBe(404);
+    });
+
+    it("DELETE returns 400 for a path-traversal attachment id", async () => {
+      const res = await fetch(`${baseUrl}/api/review/test-review/attachments?id=..%2F..%2Fetc`, {
+        method: "DELETE",
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("GET /api/review/:id/export", () => {
     it("returns a zip bundle with review.json + image bytes", async () => {
       const { parseBundle } = await import("./export.js");

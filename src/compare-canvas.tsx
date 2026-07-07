@@ -56,6 +56,7 @@ export function CompareCanvas({
               {label}
             </div>
             <CanvasLayer
+              reviewId={reviewId}
               imageDataUrl={imageUrl(reviewId, imgIndex)}
               annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
               selectedId={selectedId}
@@ -97,6 +98,7 @@ export function CompareCanvas({
       <div className="flex-1 overflow-hidden flex flex-col">
         <CanvasLayer
           key={imgIndex}
+          reviewId={reviewId}
           imageDataUrl={imageUrl(reviewId, imgIndex)}
           annotations={annotations.filter((a) => a.imageIndex === imgIndex)}
           selectedId={selectedId}

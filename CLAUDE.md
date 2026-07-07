@@ -45,7 +45,8 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - HTTP server defaults to port 4747 (override with `PINPOINT_PORT`); CLI uses port 0 (random) by default
 - Annotation coordinates are percentages (0-100), not pixels
 - `images` array (not singular `image`) — supports multi-screenshot reviews
-- Annotations are `{ id, number, imageIndex, pin, box?, comment }` — no intent/severity/status fields. Claude classifies from the comment text.
+- Annotations are `{ id, number, imageIndex, pin, box?, comment, attachments? }` — no intent/severity/status fields. Claude classifies from the comment text.
+- Pasted-image attachments are stored raw (no file extension) under the review's own storage dir and served with a sniffed mime type — see `src/image-sniff.ts`
 - Canvas uses `hsl(var(--canvas-letterbox))` from CSS for theme support
 - Tailwind v4 — custom colors use `hsl(var(--variable))` pattern in global.css, NOT `@theme`
 
