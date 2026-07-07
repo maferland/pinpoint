@@ -1,3 +1,9 @@
+## [v0.12.0]
+
+- **Paste a screenshot straight into a comment.** Clipboard images show up as a removable thumbnail beneath the text, with a click-to-zoom preview.
+- **Pasted images reach your agent as real files.** The finalized JSON includes a file path for each attachment, so the agent can read it directly instead of just seeing a description.
+- **Attachments survive export and reopen.** `pinpoint export`/`open` bundle pasted images into the `.pinpoint.zip`, so nothing gets lost in a handoff.
+
 ## [v0.11.0]
 
 - **Escape no longer deletes your pin.** Cancelling out of a fresh annotation could wipe it entirely instead of just closing the popover.
