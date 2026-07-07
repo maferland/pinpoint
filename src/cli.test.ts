@@ -256,6 +256,14 @@ describe("pinpoint review cli", () => {
     const cli = spawnCli(["review", imagePath, "--context", "smoke"]);
     const { port, reviewId } = await waitForReady(() => cli.stderr);
 
+    const uploadRes = await fetch(`http://localhost:${port}/api/review/${reviewId}/attachments`, {
+      method: "POST",
+      headers: { "Content-Type": "image/png" },
+      body: TEST_PNG,
+    });
+    expect(uploadRes.status).toBe(200);
+    const attachment = await uploadRes.json() as { id: string; width: number; height: number };
+
     const annRes = await fetch(`http://localhost:${port}/api/review/${reviewId}/annotations`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -263,6 +271,7 @@ describe("pinpoint review cli", () => {
         id: "a1", number: 1, imageIndex: 0, pin: { x: 50, y: 50 },
         box: { x: 40, y: 40, width: 20, height: 20 },
         comment: "smoke",
+        attachments: [attachment],
       }]),
     });
     expect(annRes.status).toBe(200);
@@ -283,6 +292,14 @@ describe("pinpoint review cli", () => {
     expect(json.annotations).toHaveLength(1);
     expect(json.annotations[0].comment).toBe("smoke");
     expect(json.annotations[0].pin).toEqual({ x: 50, y: 50 });
+
+    // The pasted attachment reaches the agent as a real, readable file path —
+    // that's the actual point of the feature.
+    const attachmentOut = json.annotations[0].attachments[0];
+    expect(attachmentOut.width).toBe(100);
+    expect(attachmentOut.height).toBe(100);
+    expect(fs.existsSync(attachmentOut.path)).toBe(true);
+    expect(fs.readFileSync(attachmentOut.path)[0]).toBe(0x89);
   }, 10000);
 
   it("exits with usage when no images given", async () => {

@@ -4,6 +4,7 @@ import type { ViewMode } from "./api.ts";
 import { Popover } from "./popover.tsx";
 
 interface CanvasLayerProps {
+  reviewId: string;
   imageDataUrl: string;
   annotations: PinpointAnnotation[];
   selectedId: string | null;
@@ -110,6 +111,7 @@ export function hitTestAnnotation(
 }
 
 export function CanvasLayer({
+  reviewId,
   imageDataUrl,
   annotations,
   selectedId,
@@ -402,6 +404,7 @@ export function CanvasLayer({
               return (
                 <Popover
                   key={selectedAnn.id}
+                  reviewId={reviewId}
                   annotation={selectedAnn}
                   x={popoverX}
                   y={popoverY}

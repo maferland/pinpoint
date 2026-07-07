@@ -76,7 +76,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { command, positional, pairs, context, output, mode, port };
 }
 
-function reviewToOutput(final: PinpointReview): object {
+function reviewToOutput(final: PinpointReview, store: FileReviewStore): object {
   const images = final.images.map((img) => ({ path: img.path, width: img.width, height: img.height }));
   const slots = resolveSlots(final);
 
@@ -102,6 +102,15 @@ function reviewToOutput(final: PinpointReview): object {
       pin: a.pin,
       box: a.box,
       comment: a.comment,
+      ...(a.attachments && a.attachments.length > 0
+        ? {
+            attachments: a.attachments.map((attachment) => ({
+              path: store.attachmentPath(final.id, attachment.id),
+              width: attachment.width,
+              height: attachment.height,
+            })),
+          }
+        : {}),
     };
   });
 
@@ -145,7 +154,7 @@ async function runAnnotationSession(
     process.exit(1);
   }
 
-  process.stdout.write(JSON.stringify(reviewToOutput(final), null, 2) + "\n");
+  process.stdout.write(JSON.stringify(reviewToOutput(final, store), null, 2) + "\n");
   server.closeAllConnections?.();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 250).unref();
@@ -226,7 +235,7 @@ async function exportCommand(args: ParsedArgs): Promise<void> {
     process.exit(1);
   }
 
-  const zip = await serialize(review);
+  const zip = await serialize(review, store);
 
   if (args.output === "-") {
     process.stdout.write(zip);
@@ -301,7 +310,7 @@ async function openCommand(args: ParsedArgs): Promise<void> {
   }
 
   const imageDir = path.join(os.tmpdir(), "pinpoint-reviews", `${bundle.manifest.id}-images`);
-  const restored = await deserialize({ bundle, imageDir, mode, existing });
+  const restored = await deserialize({ bundle, imageDir, mode, existing, store });
   await store.save(restored);
 
   process.stderr.write(`Imported review "${restored.id}" (mode: ${mode})\n`);

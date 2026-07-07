@@ -13,6 +13,7 @@ import { PreferencesStore, type Preferences } from "./preferences.js";
 import { createServer } from "./server.js";
 import { serialize } from "./export.js";
 import { REVIEW_ID_RE } from "./util.js";
+import { sniffMimeType } from "./image-sniff.js";
 import type { PinpointAnnotation } from "./types.js";
 
 const DIST_DIR = import.meta.filename?.endsWith(".ts")
@@ -26,6 +27,7 @@ const MIME_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 const MAX_BODY = 1024 * 1024;
+const MAX_ATTACHMENT_BODY = 8 * 1024 * 1024;
 
 type RouteHandler = (
   reviewId: string,
@@ -77,6 +79,46 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
       stream.pipe(res);
     },
 
+    "POST /api/review/attachments": async (id, req, res) => {
+      const review = await store.load(id);
+      if (!review) return json(res, 404, { error: "Review not found" });
+
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of req) {
+        size += (chunk as Buffer).length;
+        if (size > MAX_ATTACHMENT_BODY) return json(res, 413, { error: "Payload too large" });
+        chunks.push(chunk as Buffer);
+      }
+
+      const attachment = await store.saveAttachment(id, Buffer.concat(chunks));
+      json(res, 200, attachment);
+    },
+
+    "GET /api/review/attachments": async (id, req, res) => {
+      const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+      const attachmentId = url.searchParams.get("id") ?? "";
+      try {
+        const buf = await fs.promises.readFile(store.attachmentPath(id, attachmentId));
+        res.writeHead(200, { "Content-Type": sniffMimeType(buf) });
+        res.end(buf);
+      } catch {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Attachment not found");
+      }
+    },
+
+    "DELETE /api/review/attachments": async (id, req, res) => {
+      const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+      const attachmentId = url.searchParams.get("id") ?? "";
+      try {
+        await store.deleteAttachment(id, attachmentId);
+        json(res, 200, { ok: true });
+      } catch {
+        json(res, 400, { error: "Invalid attachment id" });
+      }
+    },
+
     "PUT /api/review/annotations": async (id, req, res) => {
       const review = await store.load(id);
       if (!review) return json(res, 404, { error: "Review not found" });
@@ -102,7 +144,7 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
       const review = await store.load(id);
       if (!review) return json(res, 404, { error: "Review not found" });
       try {
-        const zip = await serialize(review);
+        const zip = await serialize(review, store);
         res.writeHead(200, {
           "Content-Type": "application/zip",
           "Content-Disposition": `attachment; filename="${id}.pinpoint.zip"`,
@@ -128,7 +170,7 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
 
   const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
@@ -159,6 +201,7 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
 
     const reviewId = idMatch[1];
     const suffix = url.pathname.endsWith("/image") ? "/image"
+      : url.pathname.endsWith("/attachments") ? "/attachments"
       : url.pathname.endsWith("/annotations") ? "/annotations"
       : url.pathname.endsWith("/finalize") ? "/finalize"
       : url.pathname.endsWith("/export") ? "/export"

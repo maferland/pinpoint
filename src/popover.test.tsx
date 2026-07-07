@@ -1,12 +1,21 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Popover } from "./popover.tsx";
 import type { PinpointAnnotation } from "./types.ts";
 
+const realFetch = globalThis.fetch;
+
 afterEach(() => {
   cleanup();
+  globalThis.fetch = realFetch;
 });
+
+function pasteImage(textarea: HTMLElement, file: File) {
+  fireEvent.paste(textarea, {
+    clipboardData: { items: [{ type: file.type, getAsFile: () => file }] },
+  });
+}
 
 function makeAnnotation(overrides: Partial<PinpointAnnotation> = {}): PinpointAnnotation {
   return {
@@ -25,6 +34,7 @@ describe("Popover", () => {
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
     render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -45,6 +55,7 @@ describe("Popover", () => {
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -66,6 +77,7 @@ describe("Popover", () => {
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation({ comment: "original" })}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -83,6 +95,7 @@ describe("Popover", () => {
     const onClose = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation({ comment: "original" })}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -105,6 +118,7 @@ describe("Popover", () => {
     const onDelete = mock(() => {});
     render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={() => {}}
@@ -121,6 +135,7 @@ describe("Popover", () => {
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -139,6 +154,7 @@ describe("Popover", () => {
     const onClose = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={() => {}}
@@ -159,6 +175,7 @@ describe("Popover", () => {
     const onClose = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -183,6 +200,7 @@ describe("Popover", () => {
     const onClose = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation({ comment: "original" })}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -206,6 +224,7 @@ describe("Popover", () => {
     const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation({ comment: "old note" })}
         x={0} y={0}
         onUpdate={onUpdate}
@@ -227,6 +246,7 @@ describe("Popover", () => {
     const onDelete = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation()}
         x={0} y={0}
         onUpdate={() => {}}
@@ -246,6 +266,7 @@ describe("Popover", () => {
     const onDelete = mock(() => {});
     const { unmount } = render(
       <Popover
+        reviewId="test-review"
         annotation={makeAnnotation({ comment: "still here" })}
         x={0} y={0}
         onUpdate={() => {}}
@@ -256,6 +277,86 @@ describe("Popover", () => {
     const textarea = screen.getByTestId("popover-textarea");
     await user.click(textarea);
     await user.keyboard(" more");
+    unmount();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it("pastes an image: shows an optimistic thumbnail, then calls onUpdate with the confirmed attachment", async () => {
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    // @ts-expect-error test stub
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ id: "att1", width: 10, height: 10 }),
+    }));
+
+    render(
+      <Popover
+        reviewId="test-review"
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={() => {}}
+        onClose={() => {}}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    const file = new File(["fake-bytes"], "screenshot.png", { type: "image/png" });
+    pasteImage(textarea, file);
+
+    expect(await screen.findByAltText("Uploading attachment")).toBeTruthy();
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith({
+        attachments: [{ id: "att1", width: 10, height: 10 }],
+      });
+    });
+    expect(await screen.findByAltText("Pasted attachment")).toBeTruthy();
+  });
+
+  it("removes a pasted attachment via its remove button and calls onUpdate with it stripped", async () => {
+    const user = userEvent.setup();
+    const onUpdate = mock((_updates: Partial<PinpointAnnotation>) => {});
+    // @ts-expect-error test stub
+    globalThis.fetch = mock(async () => ({ ok: true, json: async () => ({}) }));
+
+    render(
+      <Popover
+        reviewId="test-review"
+        annotation={makeAnnotation({ attachments: [{ id: "att1", width: 10, height: 10 }] })}
+        x={0} y={0}
+        onUpdate={onUpdate}
+        onDelete={() => {}}
+        onClose={() => {}}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Remove attachment" }));
+    expect(onUpdate).toHaveBeenCalledWith({ attachments: [] });
+    expect(screen.queryByAltText("Pasted attachment")).toBeNull();
+  });
+
+  it("does not delete a new pin with only a pasted attachment and no comment", async () => {
+    const onDelete = mock(() => {});
+    // @ts-expect-error test stub
+    globalThis.fetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ id: "att1", width: 10, height: 10 }),
+    }));
+
+    const { unmount } = render(
+      <Popover
+        reviewId="test-review"
+        annotation={makeAnnotation()}
+        x={0} y={0}
+        onUpdate={() => {}}
+        onDelete={onDelete}
+        onClose={() => {}}
+      />
+    );
+    const textarea = screen.getByTestId("popover-textarea");
+    const file = new File(["fake-bytes"], "screenshot.png", { type: "image/png" });
+    pasteImage(textarea, file);
+    await screen.findByAltText("Pasted attachment");
+
     unmount();
     expect(onDelete).not.toHaveBeenCalled();
   });

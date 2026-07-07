@@ -6,25 +6,9 @@ import { z } from "zod/v4";
 import type { ReviewStore } from "./store.js";
 import type { ImageInfo } from "./types.js";
 import { generateId, openBrowser } from "./util.js";
+import { readImageDimensions } from "./image-sniff.js";
 
-export async function readImageDimensions(
-  imagePath: string
-): Promise<{ width: number; height: number }> {
-  const buf = await fs.promises.readFile(imagePath);
-  if (buf.length >= 24 && buf[0] === 0x89 && buf[1] === 0x50) {
-    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
-  }
-  let offset = 2;
-  while (offset + 3 < buf.length) {
-    if (buf[offset] !== 0xff) break;
-    const marker = buf[offset + 1];
-    if ((marker === 0xc0 || marker === 0xc2) && offset + 9 <= buf.length) {
-      return { height: buf.readUInt16BE(offset + 5), width: buf.readUInt16BE(offset + 7) };
-    }
-    offset += 2 + buf.readUInt16BE(offset + 2);
-  }
-  return { width: 0, height: 0 };
-}
+export { readImageDimensions } from "./image-sniff.js";
 
 async function resolveImage(
   imagePath: string,

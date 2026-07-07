@@ -253,6 +253,7 @@ export function AnnotatorApp() {
             />
           ) : (
             <CanvasLayer
+              reviewId={reviewId ?? ""}
               imageDataUrl={currentImageUrl}
               annotations={activeAnnotations}
               selectedId={selectedId}
@@ -300,6 +301,7 @@ export function AnnotatorApp() {
 
         {/* Comments rail */}
         <CommentsRail
+          reviewId={reviewId}
           annotations={activeAnnotations}
           selectedId={selectedId}
           context={review?.context}

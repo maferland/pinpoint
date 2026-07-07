@@ -4,6 +4,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { deserialize, parseBundle, serialize } from "./export.js";
 import { writeZip } from "./zip.js";
+import { FileReviewStore } from "./store.js";
 import type { PinpointReview } from "./types.js";
 
 const TEST_PNG = Buffer.from([
@@ -15,11 +16,13 @@ const TEST_PNG = Buffer.from([
 
 let dir: string;
 let imagePath: string;
+let store: FileReviewStore;
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-export-test-"));
   imagePath = path.join(dir, "screen.png");
   fs.writeFileSync(imagePath, TEST_PNG);
+  store = new FileReviewStore(path.join(dir, "store"));
 });
 
 afterEach(() => {
@@ -42,7 +45,7 @@ function makeReview(overrides?: Partial<PinpointReview>): PinpointReview {
 
 describe("export.serialize", () => {
   it("produces a zip with review.json + images/ entries", async () => {
-    const zip = await serialize(makeReview());
+    const zip = await serialize(makeReview(), store);
     // PKZip signature: 0x50 0x4b 0x03 0x04 ('PK\x03\x04')
     expect(zip[0]).toBe(0x50);
     expect(zip[1]).toBe(0x4b);
@@ -66,18 +69,19 @@ describe("export.serialize", () => {
     const weird = path.join(dir, "screen with spaces.png");
     fs.writeFileSync(weird, TEST_PNG);
     const review = makeReview({ images: [{ path: weird, width: 1, height: 1 }] });
-    const { manifest } = parseBundle(await serialize(review));
+    const { manifest } = parseBundle(await serialize(review, store));
     expect(manifest.images[0].name).toBe("images/0-screen_with_spaces.png");
   });
 });
 
 describe("export.deserialize", () => {
   it("round-trips a review: replace mode", async () => {
-    const zip = await serialize(makeReview());
+    const zip = await serialize(makeReview(), store);
     const restored = await deserialize({
       bundle: parseBundle(zip),
       imageDir: path.join(dir, "restored"),
       mode: "replace",
+      store,
     });
     expect(restored.id).toBe("abc123");
     expect(restored.annotations).toHaveLength(1);
@@ -85,19 +89,44 @@ describe("export.deserialize", () => {
     expect(fs.readFileSync(restored.images[0].path).equals(TEST_PNG)).toBe(true);
   });
 
+  it("round-trips an annotation's pasted attachment through export and import", async () => {
+    const review = makeReview();
+    const attachment = await store.saveAttachment(review.id, TEST_PNG);
+    review.annotations[0].attachments = [attachment];
+
+    const zip = await serialize(review, store);
+    const importStore = new FileReviewStore(path.join(dir, "import-store"));
+    const restored = await deserialize({
+      bundle: parseBundle(zip),
+      imageDir: path.join(dir, "restored-attachment"),
+      mode: "replace",
+      store: importStore,
+    });
+
+    const restoredAttachment = restored.annotations[0].attachments?.[0];
+    expect(restoredAttachment).toBeDefined();
+    expect(restoredAttachment!.width).toBe(100);
+    expect(restoredAttachment!.height).toBe(100);
+    const bytes = await fs.promises.readFile(
+      importStore.attachmentPath(restored.id, restoredAttachment!.id)
+    );
+    expect(bytes.equals(TEST_PNG)).toBe(true);
+  });
+
   it("generates new id and createdAt in 'new' mode", async () => {
-    const zip = await serialize(makeReview());
+    const zip = await serialize(makeReview(), store);
     const restored = await deserialize({
       bundle: parseBundle(zip),
       imageDir: path.join(dir, "new"),
       mode: "new",
+      store,
     });
     expect(restored.id).not.toBe("abc123");
     expect(restored.createdAt).not.toBe("2026-01-01T00:00:00.000Z");
   });
 
   it("appends annotations with renumbered ids/numbers in 'append' mode", async () => {
-    const zip = await serialize(makeReview());
+    const zip = await serialize(makeReview(), store);
     const existing = makeReview({
       id: "abc123",
       annotations: [
@@ -110,6 +139,7 @@ describe("export.deserialize", () => {
       imageDir: path.join(dir, "append"),
       mode: "append",
       existing,
+      store,
     });
     expect(merged.annotations).toHaveLength(3);
     expect(merged.annotations[2].number).toBe(3);

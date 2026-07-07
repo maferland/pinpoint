@@ -5,6 +5,12 @@ export interface ImageInfo {
   details?: Record<string, string>;
 }
 
+export interface AnnotationAttachment {
+  id: string;
+  width: number;
+  height: number;
+}
+
 export interface PinpointAnnotation {
   id: string;
   number: number;
@@ -12,6 +18,7 @@ export interface PinpointAnnotation {
   pin: { x: number; y: number };
   box?: { x: number; y: number; width: number; height: number };
   comment: string;
+  attachments?: AnnotationAttachment[];
 }
 
 export interface SingleSlot {
