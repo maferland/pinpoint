@@ -171,10 +171,6 @@ Bash(command="pinpoint export <reviewId>")   # writes <reviewId>.pinpoint.zip in
 
 The review id is the trailing path segment of the annotator URL (`/review/<id>`).
 
-## MCP fallback
-
-There's also an MCP server (registered as `pinpoint`) exposing `create_review`, `add_image`, `get_annotations`, `list_reviews` — useful for non-interactive scripting. The CLI is the recommended path; only reach for MCP if you need to programmatically build a review without user interaction.
-
 ## Tips
 
 - `--context` format is covered in step 2 — default to JSON, not a bare string
@@ -189,5 +185,4 @@ There's also an MCP server (registered as `pinpoint`) exposing `create_review`, 
 - Don't detach with `&`, `nohup`, or `disown` — stdout is the JSON you need; detaching throws it away. Use foreground or `run_in_background: true`.
 - Don't add preamble around the call ("Click the Send button when finished") — the user knows the flow
 - Don't tell the user to type "done" — hitting the Send button (labeled "Looks good" or "Send N comments") handles the handoff
-- Don't try to call MCP tools mid-review — the Bash call blocks until the user submits
 - Don't guess what the user sees — let them annotate

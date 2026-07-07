@@ -61,10 +61,6 @@ echo -e "  ${DIM}Installing plugin...${RESET}"
 claude plugin marketplace add "$INSTALL_DIR" 2>/dev/null || true
 claude plugin install pinpoint@pinpoint-marketplace 2>/dev/null || true
 
-# Optional MCP server registration (back door for non-interactive scripting)
-echo -e "  ${DIM}Registering MCP server...${RESET}"
-claude mcp add pinpoint -- bun "$INSTALL_DIR/src/main.ts" --stdio 2>/dev/null || true
-
 # PATH sanity check
 if ! command -v pinpoint &>/dev/null; then
   echo ""

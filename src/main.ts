@@ -1,16 +1,10 @@
-/**
- * Pinpoint MCP server entry point.
- * Always starts an HTTP server for the annotation UI.
- * Usage: bun src/main.ts [--stdio]
- */
+// Pinpoint HTTP server: serves the annotation UI and its REST API. Usage: bun src/main.ts
 
 import fs from "fs";
 import http from "http";
 import path from "path";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { FileReviewStore } from "./store.js";
 import { PreferencesStore, type Preferences } from "./preferences.js";
-import { createServer } from "./server.js";
 import { serialize } from "./export.js";
 import { REVIEW_ID_RE } from "./util.js";
 import { sniffMimeType } from "./image-sniff.js";
@@ -241,12 +235,6 @@ async function main() {
   const store = new FileReviewStore();
   const httpPort = parseInt(process.env.PINPOINT_PORT ?? "4747", 10);
   const { server: httpServer } = createHttpServer(store, httpPort);
-
-  if (process.argv.includes("--stdio")) {
-    await createServer(store, httpPort).connect(new StdioServerTransport());
-  } else {
-    process.stderr.write("Running in HTTP-only mode (no MCP stdio)\n");
-  }
 
   const shutdown = () => httpServer.close(() => process.exit(0));
   process.on("SIGINT", shutdown);

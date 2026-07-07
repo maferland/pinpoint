@@ -4,20 +4,12 @@
   "type": "module",
   "description": "Visual annotation for AI coding agents — screenshot anything, annotate regions, get structured feedback",
   "license": "MIT",
-  "main": "dist/server.js",
-  "types": "dist/server.d.ts",
   "bin": {
     "pinpoint": "dist/cli.js"
   },
   "files": [
     "dist"
   ],
-  "exports": {
-    ".": {
-      "types": "./dist/server.d.ts",
-      "default": "./dist/server.js"
-    }
-  },
   "scripts": {
     "build": "bun scripts/build.mjs",
     "build:site": "vite build --config vite.site.config.ts",
@@ -27,10 +19,6 @@
     "test:e2e": "bun run build && playwright test",
     "test:all": "bun run test && bun run test:e2e",
     "typecheck": "bunx tsc --noEmit"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.25.2",
-    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.9.0",
