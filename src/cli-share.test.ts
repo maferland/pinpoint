@@ -1,56 +1,11 @@
-import { spawn, spawnSync } from "child_process";
 import fs from "fs";
 import http from "http";
 import os from "os";
 import path from "path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
+import { ensureCliBuilt, spawnCli, TEST_PNG, waitForReady } from "./cli-test-harness.js";
 
-const CLI_PATH = path.join(import.meta.dirname!, "..", "dist", "cli.js");
-
-beforeAll(() => {
-  if (fs.existsSync(CLI_PATH)) return;
-  const result = spawnSync("bun", ["run", "build"], {
-    cwd: path.join(import.meta.dirname!, ".."),
-    stdio: "inherit",
-  });
-  if (result.status !== 0) throw new Error("build failed");
-});
-
-const TEST_PNG = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-  0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00, 0x64,
-  0x08, 0x02, 0x00, 0x00, 0x00,
-]);
-
-function spawnCli(args: string[], env: Record<string, string | undefined> = {}) {
-  const proc = spawn("node", [CLI_PATH, ...args], {
-    env: { ...process.env, PINPOINT_TEST_NO_OPEN: "1", ...env },
-  });
-  let stdout = "";
-  let stderr = "";
-  proc.stdout?.on("data", (c) => { stdout += c.toString(); });
-  proc.stderr?.on("data", (c) => { stderr += c.toString(); });
-  const exited = new Promise<number>((resolve) => {
-    proc.on("exit", (code) => resolve(code ?? -1));
-  });
-  return {
-    proc,
-    exited,
-    get stdout() { return stdout; },
-    get stderr() { return stderr; },
-  };
-}
-
-async function waitForReady(getStderr: () => string, timeoutMs = 5000): Promise<{ port: number; reviewId: string }> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    const m = getStderr().match(/http:\/\/localhost:(\d+)\/review\/([a-zA-Z0-9_-]+)/);
-    if (m) return { port: parseInt(m[1], 10), reviewId: m[2] };
-    await new Promise((r) => setTimeout(r, 25));
-  }
-  throw new Error(`cli not ready in ${timeoutMs}ms: ${getStderr()}`);
-}
+beforeAll(ensureCliBuilt);
 
 async function waitForLink(getStdout: () => string, timeoutMs = 5000): Promise<string> {
   const start = Date.now();
@@ -139,7 +94,7 @@ describe("pinpoint share/open cli", () => {
     const shareCli = spawnCli(["share", reviewId, "--server", mock.baseUrl]);
     const link = await waitForLink(() => shareCli.stdout);
     expect(await shareCli.exited).toBe(0);
-    expect(link).toContain("/s#i.");
+    expect(link).toContain("/s#t=i&");
     expect(mock.uploadCount).toBe(0);
 
     const openCli = spawnCli(["open", link, "--mode", "new"]);
@@ -183,7 +138,7 @@ describe("pinpoint share/open cli", () => {
     const shareCli = spawnCli(["share", reviewId, "--server", mock.baseUrl]);
     const link = await waitForLink(() => shareCli.stdout);
     expect(await shareCli.exited).toBe(0);
-    expect(link).toContain("/s#b.");
+    expect(link).toContain("/s#t=b&");
     expect(mock.uploadCount).toBe(1);
 
     const openCli = spawnCli(["open", link, "--mode", "new"]);
@@ -202,7 +157,8 @@ describe("pinpoint share/open cli", () => {
   }, 20000);
 
   it("open exits with a clear error when the blob link has expired", async () => {
-    const cli = spawnCli(["open", `${mock.baseUrl}/s#b.aGVsbG8.aGVsbG8`]);
+    const fragment = new URLSearchParams({ t: "b", d: `${mock.baseUrl}/blobs/missing`, k: "hello" });
+    const cli = spawnCli(["open", `${mock.baseUrl}/s#${fragment.toString()}`]);
     const code = await cli.exited;
     expect(code).toBe(1);
   }, 10000);

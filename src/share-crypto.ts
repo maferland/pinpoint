@@ -1,11 +1,16 @@
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 12;
 
-function toBase64Url(bytes: Uint8Array): string {
+// Our Uint8Arrays are always ArrayBuffer-backed, but TS's BufferSource type demands that explicitly.
+function asBufferSource(bytes: Uint8Array): BufferSource {
+  return bytes as BufferSource;
+}
+
+export function toBase64Url(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64url");
 }
 
-function fromBase64Url(value: string): Uint8Array {
+export function fromBase64Url(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, "base64url"));
 }
 
@@ -20,8 +25,8 @@ export interface EncryptedBundle {
 export async function encryptBundle(bytes: Uint8Array): Promise<EncryptedBundle> {
   const rawKey = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-  const cryptoKey = await crypto.subtle.importKey("raw", rawKey, ALGORITHM, false, ["encrypt"]);
-  const ciphertext = await crypto.subtle.encrypt({ name: ALGORITHM, iv }, cryptoKey, bytes as BufferSource);
+  const cryptoKey = await crypto.subtle.importKey("raw", asBufferSource(rawKey), ALGORITHM, false, ["encrypt"]);
+  const ciphertext = await crypto.subtle.encrypt({ name: ALGORITHM, iv }, cryptoKey, asBufferSource(bytes));
 
   const payload = new Uint8Array(iv.length + ciphertext.byteLength);
   payload.set(iv, 0);
@@ -34,15 +39,7 @@ export async function decryptBundle(payload: Uint8Array, key: string): Promise<U
   const rawKey = fromBase64Url(key);
   const iv = payload.slice(0, IV_LENGTH);
   const ciphertext = payload.slice(IV_LENGTH);
-  const cryptoKey = await crypto.subtle.importKey("raw", rawKey as BufferSource, ALGORITHM, false, ["decrypt"]);
-  const plaintext = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, cryptoKey, ciphertext as BufferSource);
+  const cryptoKey = await crypto.subtle.importKey("raw", asBufferSource(rawKey), ALGORITHM, false, ["decrypt"]);
+  const plaintext = await crypto.subtle.decrypt({ name: ALGORITHM, iv }, cryptoKey, asBufferSource(ciphertext));
   return new Uint8Array(plaintext);
-}
-
-export function encodeInline(payload: Uint8Array): string {
-  return toBase64Url(payload);
-}
-
-export function decodeInline(encoded: string): Uint8Array {
-  return fromBase64Url(encoded);
 }

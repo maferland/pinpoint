@@ -42,11 +42,15 @@ describe("share link round-trip", () => {
   });
 
   it("rejects a link that isn't a share link", () => {
-    expect(() => parseShareLink("https://example.test/other#i.a.b")).toThrow();
+    expect(() => parseShareLink("https://example.test/other#t=i&d=a&k=b")).toThrow();
   });
 
   it("rejects a link with an unknown tier marker", () => {
-    expect(() => parseShareLink("https://example.test/s#x.a.b")).toThrow(/Unknown share link tier/);
+    expect(() => parseShareLink("https://example.test/s#t=x&d=a&k=b")).toThrow(/Unknown share link tier/);
+  });
+
+  it("rejects a link missing required fragment fields", () => {
+    expect(() => parseShareLink("https://example.test/s#t=i&k=b")).toThrow(/Malformed/);
   });
 });
 
