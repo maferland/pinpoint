@@ -13,9 +13,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import readline from "readline";
-import { FileReviewStore } from "./store.js";
+import { FileReviewStore, type ReviewStore } from "./store.js";
 import { createHttpServer } from "./main.js";
-import { readImageDimensions } from "./server.js";
+import { readImageDimensions } from "./image-sniff.js";
 import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
 import { generateId, openBrowser } from "./util.js";
 import type { ImageInfo, PinpointReview, ReviewSlot } from "./types.js";
@@ -76,7 +76,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { command, positional, pairs, context, output, mode, port };
 }
 
-function reviewToOutput(final: PinpointReview, store: FileReviewStore): object {
+function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
   const images = final.images.map((img) => ({ path: img.path, width: img.width, height: img.height }));
   const slots = resolveSlots(final);
 

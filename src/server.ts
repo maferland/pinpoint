@@ -8,8 +8,6 @@ import type { ImageInfo } from "./types.js";
 import { generateId, openBrowser } from "./util.js";
 import { readImageDimensions } from "./image-sniff.js";
 
-export { readImageDimensions } from "./image-sniff.js";
-
 async function resolveImage(
   imagePath: string,
   details?: Record<string, string>

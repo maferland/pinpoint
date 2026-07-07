@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import type { PinpointReview } from "./types.js";
+import type { AnnotationAttachment, PinpointReview } from "./types.js";
 import { generateId } from "./util.js";
 import { sniffDimensions } from "./image-sniff.js";
 
@@ -20,6 +20,9 @@ export interface ReviewStore {
   save(review: PinpointReview): Promise<void>;
   load(id: string): Promise<PinpointReview | null>;
   list(): Promise<PinpointReview[]>;
+  attachmentPath(reviewId: string, attachmentId: string): string;
+  saveAttachment(reviewId: string, buffer: Buffer): Promise<AnnotationAttachment>;
+  deleteAttachment(reviewId: string, attachmentId: string): Promise<void>;
 }
 
 export class FileReviewStore implements ReviewStore {
@@ -113,7 +116,7 @@ export class FileReviewStore implements ReviewStore {
     return filePath;
   }
 
-  async saveAttachment(reviewId: string, buffer: Buffer): Promise<{ id: string; width: number; height: number }> {
+  async saveAttachment(reviewId: string, buffer: Buffer): Promise<AnnotationAttachment> {
     const id = generateId();
     const filePath = this.attachmentPath(reviewId, id);
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
