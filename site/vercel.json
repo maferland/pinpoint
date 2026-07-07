@@ -2,5 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": null,
-  "outputDirectory": "."
+  "outputDirectory": ".",
+  "crons": [{ "path": "/api/share/cleanup", "schedule": "0 6 * * *" }]
 }

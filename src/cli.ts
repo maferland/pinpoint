@@ -5,7 +5,8 @@
  * Usage:
  *   pinpoint review <image>... [--context "..."] [--port N]
  *   pinpoint export <reviewId> [--output FILE]
- *   pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
+ *   pinpoint share <reviewId> [--ttl DAYS] [--server URL]
+ *   pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new] [--port N]
  *   pinpoint demo [--port N]
  */
 
@@ -17,6 +18,16 @@ import { FileReviewStore, type ReviewStore } from "./store.js";
 import { createHttpServer } from "./main.js";
 import { readImageDimensions } from "./image-sniff.js";
 import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
+import { decryptBundle, encryptBundle } from "./share-crypto.js";
+import {
+  buildBlobLink,
+  buildInlineLink,
+  DEFAULT_SHARE_BASE_URL,
+  downloadBlob,
+  parseShareLink,
+  shouldInline,
+  uploadBlob,
+} from "./share-transport.js";
 import { generateId, openBrowser } from "./util.js";
 import type { ImageInfo, PinpointReview, ReviewSlot } from "./types.js";
 import { resolveSlots } from "./types.js";
@@ -31,6 +42,8 @@ interface ParsedArgs {
   output?: string;
   mode?: MergeMode;
   port: number;
+  ttlDays?: number;
+  server?: string;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -41,12 +54,16 @@ function parseArgs(argv: string[]): ParsedArgs {
   let output: string | undefined;
   let mode: MergeMode | undefined;
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
+  let ttlDays: number | undefined;
+  let server: string | undefined = process.env.PINPOINT_SHARE_URL;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--context") { context = rest[++i]; continue; }
     if (arg === "--port") { port = parseInt(rest[++i], 10); continue; }
     if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
+    if (arg === "--ttl") { ttlDays = parseInt(rest[++i], 10); continue; }
+    if (arg === "--server") { server = rest[++i]; continue; }
     if (arg === "--pair" || arg === "--compare") {
       const a = rest[++i];
       const b = rest[++i];
@@ -73,7 +90,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     positional.push(arg);
   }
 
-  return { command, positional, pairs, context, output, mode, port };
+  return { command, positional, pairs, context, output, mode, port, ttlDays, server };
 }
 
 function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
@@ -247,6 +264,36 @@ async function exportCommand(args: ParsedArgs): Promise<void> {
   process.exit(0);
 }
 
+async function shareCommand(args: ParsedArgs): Promise<void> {
+  if (args.positional.length !== 1) {
+    process.stderr.write("usage: pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n");
+    process.exit(2);
+  }
+  const [reviewId] = args.positional;
+  const store = new FileReviewStore();
+  const review = await store.load(reviewId);
+  if (!review) {
+    process.stderr.write(`Review "${reviewId}" not found.\n`);
+    process.exit(1);
+  }
+
+  const zip = await serialize(review, store);
+  const { payload, key } = await encryptBundle(zip);
+  const baseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
+
+  let link: string;
+  if (shouldInline(payload)) {
+    link = buildInlineLink(payload, key, baseUrl);
+  } else {
+    const blobUrl = await uploadBlob(payload, { baseUrl, ttlDays: args.ttlDays });
+    link = buildBlobLink(blobUrl, key, baseUrl);
+  }
+
+  process.stderr.write("Anyone with this link can decrypt the review. Send it over a trusted channel.\n");
+  process.stdout.write(link + "\n");
+  process.exit(0);
+}
+
 async function promptMode(): Promise<MergeMode> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
   try {
@@ -268,25 +315,34 @@ async function promptMode(): Promise<MergeMode> {
   }
 }
 
+async function resolveOpenTarget(target: string): Promise<Buffer> {
+  if (!/^https?:\/\//.test(target)) {
+    try {
+      return await fs.promises.readFile(path.resolve(target));
+    } catch {
+      process.stderr.write(`Cannot read bundle: ${path.resolve(target)}\n`);
+      process.exit(1);
+    }
+  }
+
+  const link = parseShareLink(target);
+  const payload = link.tier === "inline" ? link.payload : await downloadBlob(link.blobUrl);
+  return Buffer.from(await decryptBundle(payload, link.key));
+}
+
 async function openCommand(args: ParsedArgs): Promise<void> {
   if (args.positional.length !== 1) {
-    process.stderr.write("usage: pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new]\n");
+    process.stderr.write("usage: pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new]\n");
     process.exit(2);
   }
-  const filePath = path.resolve(args.positional[0]);
-  let raw: Buffer;
-  try {
-    raw = await fs.promises.readFile(filePath);
-  } catch {
-    process.stderr.write(`Cannot read bundle: ${filePath}\n`);
-    process.exit(1);
-  }
+  const target = args.positional[0];
+  const raw = await resolveOpenTarget(target);
 
   let bundle;
   try {
     bundle = parseBundle(raw);
   } catch (err) {
-    process.stderr.write(`${err instanceof Error ? err.message : err}: ${filePath}\n`);
+    process.stderr.write(`${err instanceof Error ? err.message : err}: ${target}\n`);
     process.exit(1);
   }
 
@@ -339,6 +395,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "review") return reviewCommand(args);
   if (args.command === "export") return exportCommand(args);
+  if (args.command === "share") return shareCommand(args);
   if (args.command === "open") return openCommand(args);
   if (args.command === "demo") return demoCommand(args);
 
@@ -347,7 +404,8 @@ async function main(): Promise<void> {
     "Commands:\n" +
     "  pinpoint review [--pair before after]... [image...] [--context \"...\"] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
-    "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n" +
+    "  pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n" +
+    "  pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new] [--port N]\n" +
     "  pinpoint demo [--port N]\n"
   );
   process.exit(args.command ? 2 : 0);

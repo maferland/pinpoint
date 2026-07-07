@@ -31,17 +31,22 @@ describe("share link round-trip", () => {
   });
 
   it("builds and parses a blob link", () => {
-    const link = buildBlobLink("abc123", "the-key", "https://example.test");
+    const blobUrl = "https://abc123.public.blob.vercel-storage.com/share/171-xyz.bin";
+    const link = buildBlobLink(blobUrl, "the-key", "https://example.test");
     const parsed = parseShareLink(link);
-    expect(parsed).toEqual({ tier: "blob", id: "abc123", key: "the-key" });
+    expect(parsed).toEqual({ tier: "blob", blobUrl, key: "the-key" });
   });
 
   it("rejects a link with no fragment", () => {
-    expect(() => parseShareLink("https://example.test/s/abc123")).toThrow();
+    expect(() => parseShareLink("https://example.test/s")).toThrow();
   });
 
   it("rejects a link that isn't a share link", () => {
-    expect(() => parseShareLink("https://example.test/other#key")).toThrow();
+    expect(() => parseShareLink("https://example.test/other#i.a.b")).toThrow();
+  });
+
+  it("rejects a link with an unknown tier marker", () => {
+    expect(() => parseShareLink("https://example.test/s#x.a.b")).toThrow(/Unknown share link tier/);
   });
 });
 
@@ -51,10 +56,12 @@ describe("blob upload/download", () => {
     global.fetch = originalFetch;
   });
 
-  it("uploads a payload and returns the id", async () => {
-    global.fetch = mock(async () => new Response(JSON.stringify({ id: "xyz" }), { status: 200 })) as unknown as typeof fetch;
-    const id = await uploadBlob(new Uint8Array([1, 2, 3]), { baseUrl: "https://example.test" });
-    expect(id).toBe("xyz");
+  it("uploads a payload and returns the blob url", async () => {
+    global.fetch = mock(
+      async () => new Response(JSON.stringify({ url: "https://blob.test/x" }), { status: 200 })
+    ) as unknown as typeof fetch;
+    const url = await uploadBlob(new Uint8Array([1, 2, 3]), { baseUrl: "https://example.test" });
+    expect(url).toBe("https://blob.test/x");
   });
 
   it("throws when upload fails", async () => {
@@ -62,15 +69,15 @@ describe("blob upload/download", () => {
     await expect(uploadBlob(new Uint8Array([1]), { baseUrl: "https://example.test" })).rejects.toThrow();
   });
 
-  it("downloads a payload by id", async () => {
+  it("downloads a payload from its blob url", async () => {
     const bytes = new Uint8Array([9, 8, 7]);
     global.fetch = mock(async () => new Response(bytes, { status: 200 })) as unknown as typeof fetch;
-    const result = await downloadBlob("xyz", "https://example.test");
+    const result = await downloadBlob("https://blob.test/x");
     expect(Buffer.from(result).equals(Buffer.from(bytes))).toBe(true);
   });
 
   it("throws a friendly error on 404", async () => {
     global.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
-    await expect(downloadBlob("missing", "https://example.test")).rejects.toThrow(/expired/);
+    await expect(downloadBlob("https://blob.test/missing")).rejects.toThrow(/expired/);
   });
 });

@@ -1,6 +1,11 @@
 # Pinpoint marketing site
 
-Static one-pager for `pinpoint.maferland.com`. No build step.
+Static one-pager for `pinpoint.maferland.com`. No build step for the site
+itself — `api/share/` adds two Vercel serverless functions (Node, via
+`@vercel/blob`) backing `pinpoint share`'s blob-tier relay. Deploying
+elsewhere (Netlify, Cloudflare Pages, GitHub Pages) means reimplementing those
+two functions on that platform, or dropping the blob tier and relying on
+`pinpoint share --server <url>` pointed at a self-hosted relay instead.
 
 ## Files
 
@@ -19,9 +24,11 @@ Pick whichever fits your existing setup.
 cd site
 vercel --prod
 # add pinpoint.maferland.com under the Vercel project's Domains tab
+# create a Blob store under Storage and connect it to this project —
+# Vercel injects BLOB_READ_WRITE_TOKEN automatically, api/share/* needs it
 ```
 
-Vercel will serve `index.html` at `/` and any other file at its path. `install.sh` will serve as `text/plain` automatically. No `vercel.json` needed.
+Vercel will serve `index.html` at `/` and any other file at its path. `install.sh` will serve as `text/plain` automatically.
 
 ### Netlify
 

@@ -1,0 +1,10 @@
+{
+  "name": "pinpoint-site",
+  "private": true,
+  "dependencies": {
+    "@vercel/blob": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0"
+  }
+}
