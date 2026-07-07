@@ -150,6 +150,16 @@ describe("createHttpServer", () => {
       expect(res.status).toBe(404);
     });
 
+    it("GET returns 404 for missing review", async () => {
+      const res = await fetch(`${baseUrl}/api/review/nope/attachments?id=whatever`);
+      expect(res.status).toBe(404);
+    });
+
+    it("DELETE returns 404 for missing review", async () => {
+      const res = await fetch(`${baseUrl}/api/review/nope/attachments?id=whatever`, { method: "DELETE" });
+      expect(res.status).toBe(404);
+    });
+
     it("GET returns 404 for an unknown attachment id", async () => {
       const res = await fetch(`${baseUrl}/api/review/test-review/attachments?id=nonexistent`);
       expect(res.status).toBe(404);

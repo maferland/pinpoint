@@ -3,7 +3,7 @@ import path from "path";
 import type { AnnotationAttachment, ImageInfo, PinpointAnnotation, PinpointReview } from "./types.js";
 import { generateId } from "./util.js";
 import { readZip, writeZip, type ZipEntry } from "./zip.js";
-import type { FileReviewStore } from "./store.js";
+import type { ReviewStore } from "./store.js";
 
 const MANIFEST_NAME = "review.json";
 const IMAGE_PREFIX = "images/";
@@ -47,7 +47,7 @@ function safeFilename(name: string): string {
   return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export async function serialize(review: PinpointReview, store: FileReviewStore): Promise<Buffer> {
+export async function serialize(review: PinpointReview, store: ReviewStore): Promise<Buffer> {
   const images: BundleImage[] = [];
   const imageEntries: ZipEntry[] = [];
 
@@ -136,7 +136,7 @@ export interface DeserializeOptions {
   imageDir: string;
   mode: MergeMode;
   existing?: PinpointReview | null;
-  store: FileReviewStore;
+  store: ReviewStore;
 }
 
 // Attachment ids only resolve within their own review, so importing re-saves the
@@ -145,7 +145,7 @@ async function restoreAttachments(
   annotations: PinpointAnnotation[],
   targetReviewId: string,
   imageBytes: Map<string, Buffer>,
-  store: FileReviewStore
+  store: ReviewStore
 ): Promise<PinpointAnnotation[]> {
   const result: PinpointAnnotation[] = [];
   for (const ann of annotations) {

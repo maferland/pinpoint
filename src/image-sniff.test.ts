@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { readImageDimensions } from "./server.js";
+import { readImageDimensions } from "./image-sniff.js";
 
 describe("readImageDimensions", () => {
   let dir: string;

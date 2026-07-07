@@ -96,6 +96,9 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
     },
 
     "GET /api/review/attachments": async (id, req, res) => {
+      const review = await store.load(id);
+      if (!review) return json(res, 404, { error: "Review not found" });
+
       const url = new URL(req.url ?? "/", `http://localhost:${port}`);
       const attachmentId = url.searchParams.get("id") ?? "";
       try {
@@ -109,6 +112,9 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
     },
 
     "DELETE /api/review/attachments": async (id, req, res) => {
+      const review = await store.load(id);
+      if (!review) return json(res, 404, { error: "Review not found" });
+
       const url = new URL(req.url ?? "/", `http://localhost:${port}`);
       const attachmentId = url.searchParams.get("id") ?? "";
       try {
