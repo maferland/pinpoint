@@ -19,15 +19,15 @@ import { readImageDimensions } from "./image-sniff.js";
 import { importBundleIntoStore, parseBundle, serialize, type MergeMode } from "./export.js";
 import { decryptBundle, encryptBundle } from "./share-crypto.js";
 import {
-  buildBlobLink,
   buildInlineLink,
+  buildSupabaseLink,
+  createShare,
   DEFAULT_SHARE_BASE_URL,
-  downloadBlob,
+  fetchBundle,
   generateResponseChannel,
   parseShareLink,
   type ResponseChannel,
   shouldInline,
-  uploadBlob,
 } from "./share-transport.js";
 import { generateId, openBrowser } from "./util.js";
 import type { ImageInfo, PinpointReview, ReviewSlot } from "./types.js";
@@ -300,9 +300,13 @@ async function createShareLink(
   const { payload, key } = await encryptBundle(zip);
   const channel = generateResponseChannel();
 
-  const link = shouldInline(payload)
-    ? buildInlineLink(payload, key, channel, baseUrl)
-    : buildBlobLink(await uploadBlob(payload, { baseUrl, ttlDays }), key, channel, baseUrl);
+  let link: string;
+  if (shouldInline(payload)) {
+    link = buildInlineLink(payload, key, channel, baseUrl);
+  } else {
+    await createShare(channel.shareId, payload, { ttlDays });
+    link = buildSupabaseLink(key, channel, baseUrl);
+  }
 
   return { link, channel };
 }
@@ -360,7 +364,7 @@ async function resolveOpenTarget(target: string): Promise<Buffer> {
   }
 
   const link = parseShareLink(target);
-  const payload = link.tier === "inline" ? link.payload : await downloadBlob(link.blobUrl);
+  const payload = link.tier === "inline" ? link.payload : await fetchBundle(link.shareId);
   return Buffer.from(await decryptBundle(payload, link.key));
 }
 

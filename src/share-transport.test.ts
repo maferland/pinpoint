@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { encryptBundle } from "./share-crypto.js";
+import { encryptBundle, toBase64Url } from "./share-crypto.js";
 import {
-  buildBlobLink,
   buildInlineLink,
-  downloadBlob,
+  buildSupabaseLink,
+  createShare,
   downloadResponse,
+  fetchBundle,
   generateResponseChannel,
   parseShareLink,
   shouldInline,
-  uploadBlob,
   uploadResponse,
 } from "./share-transport.js";
 
@@ -45,12 +45,11 @@ describe("share link round-trip", () => {
     expect(Buffer.from(parsed.payload).equals(Buffer.from(payload))).toBe(true);
   });
 
-  it("builds and parses a blob link, carrying the response channel", () => {
-    const blobUrl = "https://abc123.public.blob.vercel-storage.com/share/171-xyz.bin";
+  it("builds and parses a supabase link, carrying the response channel", () => {
     const channel = generateResponseChannel();
-    const link = buildBlobLink(blobUrl, "the-key", channel, "https://example.test");
+    const link = buildSupabaseLink("the-key", channel, "https://example.test");
     const parsed = parseShareLink(link);
-    expect(parsed).toEqual({ tier: "blob", blobUrl, key: "the-key", ...channel });
+    expect(parsed).toEqual({ tier: "supabase", key: "the-key", ...channel });
   });
 
   it("rejects a link with no fragment", () => {
@@ -70,35 +69,42 @@ describe("share link round-trip", () => {
   });
 });
 
-describe("blob upload/download", () => {
+describe("supabase relay transport", () => {
   const originalFetch = global.fetch;
   afterEach(() => {
     global.fetch = originalFetch;
   });
 
-  it("uploads a payload and returns the blob url", async () => {
-    global.fetch = mock(
-      async () => new Response(JSON.stringify({ url: "https://blob.test/x" }), { status: 200 })
-    ) as unknown as typeof fetch;
-    const url = await uploadBlob(new Uint8Array([1, 2, 3]), { baseUrl: "https://example.test" });
-    expect(url).toBe("https://blob.test/x");
+  it("createShare posts the base64url bundle to the create_share rpc", async () => {
+    let captured: { url: string; body: Record<string, unknown> } | undefined;
+    global.fetch = mock(async (url: string, init: RequestInit) => {
+      captured = { url: String(url), body: JSON.parse(init.body as string) };
+      return new Response("", { status: 204 });
+    }) as unknown as typeof fetch;
+    await createShare("share-1", new Uint8Array([1, 2, 3]), { ttlDays: 7 });
+    expect(captured?.url).toContain("/rest/v1/rpc/create_share");
+    expect(captured?.body.share_id).toBe("share-1");
+    expect(captured?.body.ttl_days).toBe(7);
+    expect(typeof captured?.body.bundle).toBe("string");
   });
 
-  it("throws when upload fails", async () => {
-    global.fetch = mock(async () => new Response("nope", { status: 500 })) as unknown as typeof fetch;
-    await expect(uploadBlob(new Uint8Array([1]), { baseUrl: "https://example.test" })).rejects.toThrow();
+  it("createShare surfaces rpc errors", async () => {
+    global.fetch = mock(async () => new Response("boom", { status: 500 })) as unknown as typeof fetch;
+    await expect(createShare("x", new Uint8Array([1]))).rejects.toThrow();
   });
 
-  it("downloads a payload from its blob url", async () => {
+  it("fetchBundle decodes the stored ciphertext", async () => {
     const bytes = new Uint8Array([9, 8, 7]);
-    global.fetch = mock(async () => new Response(bytes, { status: 200 })) as unknown as typeof fetch;
-    const result = await downloadBlob("https://blob.test/x");
+    global.fetch = mock(
+      async () => new Response(JSON.stringify(toBase64Url(bytes)), { status: 200 })
+    ) as unknown as typeof fetch;
+    const result = await fetchBundle("share-1");
     expect(Buffer.from(result).equals(Buffer.from(bytes))).toBe(true);
   });
 
-  it("throws a friendly error on 404", async () => {
-    global.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
-    await expect(downloadBlob("https://blob.test/missing")).rejects.toThrow(/expired/);
+  it("fetchBundle throws a friendly error when the row is missing or expired", async () => {
+    global.fetch = mock(async () => new Response("null", { status: 200 })) as unknown as typeof fetch;
+    await expect(fetchBundle("gone")).rejects.toThrow(/expired/);
   });
 });
 
@@ -109,20 +115,21 @@ describe("response mailbox", () => {
   });
 
   it("uploads a response payload", async () => {
-    global.fetch = mock(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch;
-    await expect(uploadResponse("share-1", new Uint8Array([1, 2]), "https://example.test")).resolves.toBeUndefined();
+    global.fetch = mock(async () => new Response("", { status: 204 })) as unknown as typeof fetch;
+    await expect(uploadResponse("share-1", new Uint8Array([1, 2]))).resolves.toBeUndefined();
   });
 
   it("returns null when no response has been submitted yet", async () => {
-    global.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
-    const result = await downloadResponse("share-1", "https://example.test");
-    expect(result).toBeNull();
+    global.fetch = mock(async () => new Response("null", { status: 200 })) as unknown as typeof fetch;
+    expect(await downloadResponse("share-1")).toBeNull();
   });
 
   it("returns the response bytes once submitted", async () => {
     const bytes = new Uint8Array([5, 6, 7]);
-    global.fetch = mock(async () => new Response(bytes, { status: 200 })) as unknown as typeof fetch;
-    const result = await downloadResponse("share-1", "https://example.test");
+    global.fetch = mock(
+      async () => new Response(JSON.stringify(toBase64Url(bytes)), { status: 200 })
+    ) as unknown as typeof fetch;
+    const result = await downloadResponse("share-1");
     expect(result && Buffer.from(result).equals(Buffer.from(bytes))).toBe(true);
   });
 });

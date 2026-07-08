@@ -10,14 +10,14 @@ import { REVIEW_ID_RE } from "./util.js";
 import { sniffMimeType } from "./image-sniff.js";
 import { decryptBundle, encryptBundle } from "./share-crypto.js";
 import {
-  buildBlobLink,
   buildInlineLink,
+  buildSupabaseLink,
+  createShare,
   DEFAULT_SHARE_BASE_URL,
   downloadResponse,
   generateResponseChannel,
   type ResponseChannel,
   shouldInline,
-  uploadBlob,
 } from "./share-transport.js";
 import type { PinpointAnnotation } from "./types.js";
 
@@ -76,7 +76,7 @@ export function createHttpServer(
 
       let responsePayload: Uint8Array | null;
       try {
-        responsePayload = await downloadResponse(channel.shareId, shareBaseUrl);
+        responsePayload = await downloadResponse(channel.shareId);
       } catch {
         continue;
       }
@@ -226,9 +226,13 @@ export function createHttpServer(
         const zip = await serialize(review, store);
         const { payload, key } = await encryptBundle(zip);
         const channel = generateResponseChannel();
-        const link = shouldInline(payload)
-          ? buildInlineLink(payload, key, channel, shareBaseUrl)
-          : buildBlobLink(await uploadBlob(payload, { baseUrl: shareBaseUrl, ttlDays }), key, channel, shareBaseUrl);
+        let link: string;
+        if (shouldInline(payload)) {
+          link = buildInlineLink(payload, key, channel, shareBaseUrl);
+        } else {
+          await createShare(channel.shareId, payload, { ttlDays });
+          link = buildSupabaseLink(key, channel, shareBaseUrl);
+        }
         pollForResponse(id, channel).catch((err) => console.error(`Response check failed for ${id}:`, err));
         json(res, 200, { link, ttlDays });
       } catch (err) {

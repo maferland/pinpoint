@@ -17,35 +17,40 @@ async function waitForLink(getStdout: () => string, timeoutMs = 5000): Promise<s
   throw new Error(`share link not printed in ${timeoutMs}ms: ${getStdout()}`);
 }
 
-// Same contract as site/api/share/upload + Vercel Blob's public storage, backed by memory.
-function startMockBlobServer(): Promise<{ baseUrl: string; close: () => Promise<void>; uploadCount: number }> {
-  const blobs = new Map<string, Buffer>();
-  const state = { uploadCount: 0 };
+// In-memory stand-in for the Supabase relay: the four security-definer RPCs over one
+// shares table, keyed by client-generated share id (see supabase/migrations).
+function startMockRelay(): Promise<{ baseUrl: string; close: () => Promise<void>; createShareCount: number }> {
+  const rows = new Map<string, { bundle?: string; response?: string }>();
+  const state = { createShareCount: 0 };
   const server = http.createServer((req, res) => {
-    if (req.method === "POST" && req.url?.startsWith("/api/share/upload")) {
-      const chunks: Buffer[] = [];
-      req.on("data", (c) => chunks.push(c));
-      req.on("end", () => {
-        state.uploadCount++;
-        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        blobs.set(id, Buffer.concat(chunks));
-        const addr = server.address();
-        const port = typeof addr === "object" && addr ? addr.port : 0;
+    const rpc = req.url?.match(/^\/rest\/v1\/rpc\/(\w+)$/)?.[1];
+    if (req.method !== "POST" || !rpc) { res.writeHead(404); res.end("not found"); return; }
+    const chunks: Buffer[] = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString() || "{}") as {
+        share_id: string; bundle?: string; resp?: string;
+      };
+      const row = rows.get(body.share_id) ?? {};
+      if (rpc === "create_share") {
+        state.createShareCount++;
+        rows.set(body.share_id, { ...row, bundle: body.bundle });
+        res.writeHead(204); res.end(); return;
+      }
+      if (rpc === "put_response") {
+        rows.set(body.share_id, { ...row, response: body.resp });
+        res.writeHead(204); res.end(); return;
+      }
+      if (rpc === "get_bundle") {
         res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ url: `http://127.0.0.1:${port}/blobs/${id}` }));
-      });
-      return;
-    }
-    const blobMatch = req.url?.match(/^\/blobs\/(.+)$/);
-    if (req.method === "GET" && blobMatch) {
-      const bytes = blobs.get(blobMatch[1]);
-      if (!bytes) { res.writeHead(404); res.end("not found"); return; }
-      res.writeHead(200, { "content-type": "application/octet-stream" });
-      res.end(bytes);
-      return;
-    }
-    res.writeHead(404);
-    res.end("not found");
+        res.end(JSON.stringify(row.bundle ?? null)); return;
+      }
+      if (rpc === "get_response") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(row.response ?? null)); return;
+      }
+      res.writeHead(404); res.end("unknown rpc");
+    });
   });
 
   return new Promise((resolve) => {
@@ -55,7 +60,7 @@ function startMockBlobServer(): Promise<{ baseUrl: string; close: () => Promise<
       resolve({
         baseUrl: `http://127.0.0.1:${port}`,
         close: () => new Promise((r) => server.close(() => r())),
-        get uploadCount() { return state.uploadCount; },
+        get createShareCount() { return state.createShareCount; },
       });
     });
   });
@@ -64,18 +69,20 @@ function startMockBlobServer(): Promise<{ baseUrl: string; close: () => Promise<
 describe("pinpoint share/open cli", () => {
   let dir: string;
   let imagePath: string;
-  let mock: Awaited<ReturnType<typeof startMockBlobServer>>;
+  let relay: Awaited<ReturnType<typeof startMockRelay>>;
+  let relayEnv: Record<string, string>;
 
   beforeEach(async () => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinpoint-cli-share-test-"));
     imagePath = path.join(dir, "test.png");
     fs.writeFileSync(imagePath, TEST_PNG);
-    mock = await startMockBlobServer();
+    relay = await startMockRelay();
+    relayEnv = { PINPOINT_SUPABASE_URL: relay.baseUrl };
   });
 
   afterEach(async () => {
     fs.rmSync(dir, { recursive: true, force: true });
-    await mock.close();
+    await relay.close();
   });
 
   it("shares a small review inline (no server round trip) and opens it", async () => {
@@ -91,13 +98,13 @@ describe("pinpoint share/open cli", () => {
     await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
     expect(await reviewCli.exited).toBe(0);
 
-    const shareCli = spawnCli(["share", reviewId, "--server", mock.baseUrl]);
+    const shareCli = spawnCli(["share", reviewId], relayEnv);
     const link = await waitForLink(() => shareCli.stdout);
     expect(await shareCli.exited).toBe(0);
     expect(link).toContain("/s#t=i&");
-    expect(mock.uploadCount).toBe(0);
+    expect(relay.createShareCount).toBe(0);
 
-    const openCli = spawnCli(["open", link, "--mode", "new"]);
+    const openCli = spawnCli(["open", link, "--mode", "new"], relayEnv);
     const { port: openPort, reviewId: openedId } = await waitForReady(() => openCli.stderr);
     expect(openedId).not.toBe(reviewId);
 
@@ -135,13 +142,13 @@ describe("pinpoint share/open cli", () => {
     await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
     expect(await reviewCli.exited).toBe(0);
 
-    const shareCli = spawnCli(["share", reviewId, "--server", mock.baseUrl]);
+    const shareCli = spawnCli(["share", reviewId], relayEnv);
     const link = await waitForLink(() => shareCli.stdout);
     expect(await shareCli.exited).toBe(0);
-    expect(link).toContain("/s#t=b&");
-    expect(mock.uploadCount).toBe(1);
+    expect(link).toContain("/s#t=s&");
+    expect(relay.createShareCount).toBe(1);
 
-    const openCli = spawnCli(["open", link, "--mode", "new"]);
+    const openCli = spawnCli(["open", link, "--mode", "new"], relayEnv);
     const { port: openPort, reviewId: openedId } = await waitForReady(() => openCli.stderr);
 
     const review = await (await fetch(`http://localhost:${openPort}/api/review/${openedId}`)).json() as {
@@ -156,21 +163,22 @@ describe("pinpoint share/open cli", () => {
     expect(await openCli.exited).toBe(0);
   }, 20000);
 
-  it("open exits with a clear error when the blob link has expired", async () => {
-    const fragment = new URLSearchParams({ t: "b", d: `${mock.baseUrl}/blobs/missing`, k: "hello" });
-    const cli = spawnCli(["open", `${mock.baseUrl}/s#${fragment.toString()}`]);
+  it("open exits with a clear error when the shared review has expired", async () => {
+    const fragment = new URLSearchParams({ t: "s", k: "hello", s: "does-not-exist", rk: "x" });
+    const cli = spawnCli(["open", `https://example.test/s#${fragment.toString()}`], relayEnv);
     const code = await cli.exited;
     expect(code).toBe(1);
   }, 10000);
 
-  it("respects PINPOINT_SHARE_URL as the default --server", async () => {
+  it("respects PINPOINT_SHARE_URL as the default link host", async () => {
     const reviewCli = spawnCli(["review", imagePath]);
     const { port, reviewId } = await waitForReady(() => reviewCli.stderr);
     await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
     await reviewCli.exited;
 
-    const shareCli = spawnCli(["share", reviewId], { PINPOINT_SHARE_URL: mock.baseUrl });
+    const host = "https://share.example.test";
+    const shareCli = spawnCli(["share", reviewId], { ...relayEnv, PINPOINT_SHARE_URL: host });
     const link = await waitForLink(() => shareCli.stdout);
-    expect(link.startsWith(mock.baseUrl)).toBe(true);
+    expect(link.startsWith(host)).toBe(true);
   }, 10000);
 });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { decryptBundle, encryptWithKey } from "./share-crypto.ts";
-import { downloadBlob, parseShareLink, uploadResponse, type ShareLink } from "./share-transport.ts";
+import { fetchBundle, parseShareLink, uploadResponse, type ShareLink } from "./share-transport.ts";
 import { readZip, writeZip } from "./zip.ts";
 import { parseContext } from "./context.ts";
 import { CanvasLayer } from "./canvas-layer.tsx";
@@ -59,7 +59,7 @@ export function ShareView() {
     let cancelled = false;
     (async () => {
       try {
-        const payload = link.tier === "inline" ? link.payload : await downloadBlob(link.blobUrl);
+        const payload = link.tier === "inline" ? link.payload : await fetchBundle(link.shareId);
         const zipBytes = await decryptBundle(payload, link.key);
         const { manifest, imageBytes } = decodeManifest(zipBytes);
         const firstImage = manifest.images[0];
@@ -94,7 +94,7 @@ export function ShareView() {
         ...[...state.imageBytes.entries()].map(([name, data]) => ({ name, data })),
       ]);
       const encrypted = await encryptWithKey(zip, link.responseKey);
-      await uploadResponse(link.shareId, encrypted, new URL(window.location.href).origin);
+      await uploadResponse(link.shareId, encrypted);
       setState({ status: "sent" });
     } catch (err) {
       setSending(false);

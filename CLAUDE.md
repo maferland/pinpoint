@@ -42,10 +42,11 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - `src/main.ts` — HTTP server (UI + REST API: GET review, GET image, PUT annotations, POST finalize)
 - `src/store.ts` — file-based review persistence under `os.tmpdir()/pinpoint:reviews/`
 - `src/share-crypto.ts` — AES-256-GCM encrypt/decrypt for `pinpoint share`/`open <url>`; key never leaves the client
-- `src/share-transport.ts` — inline-vs-blob tier selection, share link build/parse, upload/download
+- `src/share-transport.ts` — inline-vs-Supabase tier selection, share link build/parse, RPC calls
+- `src/share-config.ts` — Supabase URL + publishable key baked into the CLI and `/s` bundle (public by design)
 - `commands/pinpoint:review.md` — slash command (`disable-model-invocation: true`) that shells out to `pinpoint review`
 - `skills/using-pinpoint/SKILL.md` — guidance for Claude on when/how to use the slash command
-- `site/api/share/` — Vercel serverless functions backing the blob-tier relay (upload + daily TTL cleanup); deployed alongside the static marketing site
+- `supabase/migrations/` — the `shares` mailbox table + security-definer RPCs (`create_share`/`get_bundle`/`put_response`/`get_response`) + `pg_cron` daily purge that back the larger-than-inline tier
 
 ## Constraints
 
@@ -56,8 +57,9 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - Pasted-image attachments are stored raw (no file extension) under the review's own storage dir and served with a sniffed mime type — see `src/image-sniff.ts`
 - Canvas uses `hsl(var(--canvas-letterbox))` from CSS for theme support
 - Tailwind v4 — custom colors use `hsl(var(--variable))` pattern in global.css, NOT `@theme`
-- Share links are the credential — whoever has the full link (including the `#` fragment) can decrypt. The relay (inline URL or Vercel Blob) only ever sees ciphertext; the AES key lives in the fragment and is never sent over HTTP
-- Bundles over ~4 KB (raw) go through the blob relay instead of inlining in the URL; bundles over 4 MB fail the upload — this is a Vercel serverless body-size limit, not a design choice
+- Share links are the credential — whoever has the full link (including the `#` fragment) can decrypt. The relay (inline URL or Supabase) only ever sees ciphertext; the AES key lives in the fragment and is never sent over HTTP
+- Bundles whose encoded ciphertext exceeds ~6000 chars go through the Supabase relay instead of inlining in the URL; the RPCs reject payloads over ~8 MB of base64
+- Supabase access is RPC-only: RLS denies direct table reads/writes, and the security-definer functions take a client-generated share id, so rows can't be enumerated with the public key
 
 ## Releasing
 
