@@ -130,6 +130,26 @@ pinpoint open path/to/bundle.pinpoint.zip --mode new  # keep your local copy unt
 The ⬇ button in the toolbar exports the live session straight to your downloads
 folder. See [the skill docs](skills/using-pinpoint/SKILL.md) for the full flow.
 
+### Sharing across networks
+
+`pinpoint share` hands a review to someone on a different network without
+either of you standing up infrastructure:
+
+```bash
+pinpoint share <reviewId>              # prints a link
+pinpoint open <link>                   # on the other machine
+```
+
+The review is encrypted in your terminal before anything leaves it. Small
+reviews (text feedback, no screenshots worth mentioning) are embedded straight
+in the link — nothing is uploaded anywhere. Larger reviews go through a relay
+that only ever stores ciphertext; the decryption key lives in the link's `#`
+fragment, which never travels over HTTP, so whoever operates the relay can't
+read the content even if they wanted to. Treat the link like a password — send
+it over a channel you trust, not a public one. Links expire after 14 days by
+default (`--ttl DAYS` to change it), and `--server URL` points at a
+self-hosted relay instead of the default one.
+
 ## Credits
 
 Architecture inspired by

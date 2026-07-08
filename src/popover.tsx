@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AnnotationAttachment, PinpointAnnotation } from "./types.ts";
-import { attachmentUrl, deleteAttachment, uploadAttachment } from "./api.ts";
+import { deleteAttachment, uploadAttachment } from "./api.ts";
+import { useAttachmentSource } from "./attachment-source.ts";
 import { AttachmentLightbox } from "./attachment-lightbox.tsx";
 
 interface PopoverProps {
@@ -65,6 +66,7 @@ export function Popover({ reviewId, annotation, x, y, onUpdate, onDelete, onClos
   const [attachments, setAttachments] = useState<AnnotationAttachment[]>(annotation.attachments ?? []);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
+  const attachmentSource = useAttachmentSource();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isNew = !annotation.comment;
   const { flush, cancel } = useFlushSave(
@@ -92,6 +94,7 @@ export function Popover({ reviewId, annotation, x, y, onUpdate, onDelete, onClos
 
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!attachmentSource.canEdit) return;
       const imageItems = Array.from(e.clipboardData.items).filter((item) => item.type.startsWith("image/"));
       if (imageItems.length === 0) return;
       e.preventDefault();
@@ -118,7 +121,7 @@ export function Popover({ reviewId, annotation, x, y, onUpdate, onDelete, onClos
           });
       }
     },
-    [reviewId, onUpdate]
+    [reviewId, onUpdate, attachmentSource.canEdit]
   );
 
   const handleRemoveAttachment = useCallback(
@@ -215,20 +218,22 @@ export function Popover({ reviewId, annotation, x, y, onUpdate, onDelete, onClos
                   onClick={() => setLightboxId(attachment.id)}
                 >
                   <img
-                    src={attachmentUrl(reviewId, attachment.id)}
+                    src={attachmentSource.srcFor(reviewId, attachment.id)}
                     alt="Pasted attachment"
                     className="w-full h-full object-cover rounded-[6px] border border-border"
                   />
                 </button>
-                <button
-                  type="button"
-                  aria-label="Remove attachment"
-                  className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full text-white text-[11px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ backgroundColor: "var(--accent)" }}
-                  onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(attachment.id); }}
-                >
-                  ×
-                </button>
+                {attachmentSource.canEdit && (
+                  <button
+                    type="button"
+                    aria-label="Remove attachment"
+                    className="absolute -top-1.5 -right-1.5 w-[18px] h-[18px] rounded-full text-white text-[11px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ backgroundColor: "var(--accent)" }}
+                    onClick={(e) => { e.stopPropagation(); handleRemoveAttachment(attachment.id); }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             ))}
             {pendingUploads.map((pending) => (

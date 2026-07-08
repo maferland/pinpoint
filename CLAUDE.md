@@ -25,6 +25,12 @@ pinpoint export <reviewId> [--output FILE|-]
 # Open a .pinpoint.zip from someone else — prompts for merge mode if id collides
 pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
 
+# Share a review across networks — encrypts locally, prints a link, relay only ever sees ciphertext
+pinpoint share <reviewId> [--ttl DAYS] [--server URL]
+
+# Open a share link the same way you'd open a bundle file
+pinpoint open <share-link> [--mode replace|append|new] [--port N]
+
 # HTTP-only mode (legacy / dev)
 bun src/main.ts                     # starts on :4747
 PINPOINT_PORT=8080 bun src/main.ts  # custom port
@@ -35,8 +41,12 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - `src/cli.ts` — `pinpoint review` CLI; spawns HTTP server, opens browser, blocks on `waitForFinalize`, prints JSON to stdout
 - `src/main.ts` — HTTP server (UI + REST API: GET review, GET image, PUT annotations, POST finalize)
 - `src/store.ts` — file-based review persistence under `os.tmpdir()/pinpoint:reviews/`
+- `src/share-crypto.ts` — AES-256-GCM encrypt/decrypt for `pinpoint share`/`open <url>`; key never leaves the client
+- `src/share-transport.ts` — inline-vs-Supabase tier selection, share link build/parse, RPC calls
+- `src/share-config.ts` — Supabase URL + publishable key baked into the CLI and `/s` bundle (public by design)
 - `commands/pinpoint:review.md` — slash command (`disable-model-invocation: true`) that shells out to `pinpoint review`
 - `skills/using-pinpoint/SKILL.md` — guidance for Claude on when/how to use the slash command
+- `supabase/migrations/` — the `shares` mailbox table + security-definer RPCs (`create_share`/`get_bundle`/`put_response`/`get_response`) + `pg_cron` daily purge that back the larger-than-inline tier
 
 ## Constraints
 
@@ -47,6 +57,9 @@ PINPOINT_PORT=8080 bun src/main.ts  # custom port
 - Pasted-image attachments are stored raw (no file extension) under the review's own storage dir and served with a sniffed mime type — see `src/image-sniff.ts`
 - Canvas uses `hsl(var(--canvas-letterbox))` from CSS for theme support
 - Tailwind v4 — custom colors use `hsl(var(--variable))` pattern in global.css, NOT `@theme`
+- Share links are the credential — whoever has the full link (including the `#` fragment) can decrypt. The relay (inline URL or Supabase) only ever sees ciphertext; the AES key lives in the fragment and is never sent over HTTP
+- Bundles whose encoded ciphertext exceeds ~6000 chars go through the Supabase relay instead of inlining in the URL; the RPCs reject payloads over ~8 MB of base64
+- Supabase access is RPC-only: RLS denies direct table reads/writes, and the security-definer functions take a client-generated share id, so rows can't be enumerated with the public key
 
 ## Releasing
 

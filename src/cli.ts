@@ -5,18 +5,30 @@
  * Usage:
  *   pinpoint review <image>... [--context "..."] [--port N]
  *   pinpoint export <reviewId> [--output FILE]
- *   pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]
+ *   pinpoint share <reviewId> [--ttl DAYS] [--server URL]
+ *   pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new] [--port N]
  *   pinpoint demo [--port N]
  */
 
 import fs from "fs";
-import os from "os";
 import path from "path";
 import readline from "readline";
 import { FileReviewStore, type ReviewStore } from "./store.js";
 import { createHttpServer } from "./main.js";
 import { readImageDimensions } from "./image-sniff.js";
-import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
+import { importBundleIntoStore, parseBundle, serialize, type MergeMode } from "./export.js";
+import { decryptBundle, encryptBundle } from "./share-crypto.js";
+import {
+  buildInlineLink,
+  buildSupabaseLink,
+  createShare,
+  DEFAULT_SHARE_BASE_URL,
+  fetchBundle,
+  generateResponseChannel,
+  parseShareLink,
+  type ResponseChannel,
+  shouldInline,
+} from "./share-transport.js";
 import { generateId, openBrowser } from "./util.js";
 import type { ImageInfo, PinpointReview, ReviewSlot } from "./types.js";
 import { resolveSlots } from "./types.js";
@@ -31,6 +43,9 @@ interface ParsedArgs {
   output?: string;
   mode?: MergeMode;
   port: number;
+  ttlDays?: number;
+  server?: string;
+  share: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -41,12 +56,18 @@ function parseArgs(argv: string[]): ParsedArgs {
   let output: string | undefined;
   let mode: MergeMode | undefined;
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
+  let ttlDays: number | undefined;
+  let server: string | undefined = process.env.PINPOINT_SHARE_URL;
+  let share = false;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === "--context") { context = rest[++i]; continue; }
     if (arg === "--port") { port = parseInt(rest[++i], 10); continue; }
     if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
+    if (arg === "--ttl") { ttlDays = parseInt(rest[++i], 10); continue; }
+    if (arg === "--server") { server = rest[++i]; continue; }
+    if (arg === "--share") { share = true; continue; }
     if (arg === "--pair" || arg === "--compare") {
       const a = rest[++i];
       const b = rest[++i];
@@ -73,7 +94,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     positional.push(arg);
   }
 
-  return { command, positional, pairs, context, output, mode, port };
+  return { command, positional, pairs, context, output, mode, port, ttlDays, server, share };
 }
 
 function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
@@ -129,13 +150,29 @@ function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
 async function runAnnotationSession(
   store: FileReviewStore,
   reviewId: string,
-  port: number
+  port: number,
+  shareBaseUrl: string,
+  autoShare?: { ttlDays?: number }
 ): Promise<void> {
-  const { server, waitForFinalize } = createHttpServer(store, port);
+  const { server, waitForFinalize } = createHttpServer(store, port, undefined, shareBaseUrl);
   await new Promise<void>((resolve) => server.on("listening", resolve));
   const addr = server.address();
   const actualPort = typeof addr === "object" && addr ? addr.port : port;
   const url = `http://localhost:${actualPort}/review/${reviewId}`;
+
+  // Registered before the /share call below so the server's response-mailbox poller (armed by that
+  // same call — see main.ts) sees this review as awaiting finalize from the moment it starts polling.
+  const finalized = waitForFinalize(reviewId);
+
+  if (autoShare) {
+    const res = await fetch(`http://localhost:${actualPort}/api/review/${reviewId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ttlDays: autoShare.ttlDays }),
+    });
+    const { link } = (await res.json()) as { link: string };
+    process.stderr.write(`Share link (anyone with it can annotate this review): ${link}\n`);
+  }
 
   process.stderr.write(`Opening ${url}\n`);
   openBrowser(url);
@@ -145,7 +182,7 @@ async function runAnnotationSession(
     process.exit(1);
   }, FINALIZE_TIMEOUT_MS);
 
-  await waitForFinalize(reviewId);
+  await finalized;
   clearTimeout(timeout);
 
   const final = await store.load(reviewId);
@@ -219,7 +256,8 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
   };
   await store.save(review);
 
-  await runAnnotationSession(store, reviewId, args.port || 0);
+  const shareBaseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
+  await runAnnotationSession(store, reviewId, args.port || 0, shareBaseUrl, args.share ? { ttlDays: args.ttlDays } : undefined);
 }
 
 async function exportCommand(args: ParsedArgs): Promise<void> {
@@ -247,6 +285,53 @@ async function exportCommand(args: ParsedArgs): Promise<void> {
   process.exit(0);
 }
 
+interface ShareResult {
+  link: string;
+  channel: ResponseChannel;
+}
+
+async function createShareLink(
+  review: PinpointReview,
+  store: ReviewStore,
+  baseUrl: string,
+  ttlDays: number | undefined
+): Promise<ShareResult> {
+  const zip = await serialize(review, store);
+  const { payload, key } = await encryptBundle(zip);
+  const channel = generateResponseChannel();
+
+  let link: string;
+  if (shouldInline(payload)) {
+    link = buildInlineLink(payload, key, channel, baseUrl);
+  } else {
+    await createShare(channel.shareId, payload, { ttlDays });
+    link = buildSupabaseLink(key, channel, baseUrl);
+  }
+
+  return { link, channel };
+}
+
+async function shareCommand(args: ParsedArgs): Promise<void> {
+  if (args.positional.length !== 1) {
+    process.stderr.write("usage: pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n");
+    process.exit(2);
+  }
+  const [reviewId] = args.positional;
+  const store = new FileReviewStore();
+  const review = await store.load(reviewId);
+  if (!review) {
+    process.stderr.write(`Review "${reviewId}" not found.\n`);
+    process.exit(1);
+  }
+
+  const baseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
+  const { link } = await createShareLink(review, store, baseUrl, args.ttlDays);
+
+  process.stderr.write("Anyone with this link can decrypt the review. Send it over a trusted channel.\n");
+  process.stdout.write(link + "\n");
+  process.exit(0);
+}
+
 async function promptMode(): Promise<MergeMode> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
   try {
@@ -268,25 +353,34 @@ async function promptMode(): Promise<MergeMode> {
   }
 }
 
+async function resolveOpenTarget(target: string): Promise<Buffer> {
+  if (!/^https?:\/\//.test(target)) {
+    try {
+      return await fs.promises.readFile(path.resolve(target));
+    } catch {
+      process.stderr.write(`Cannot read bundle: ${path.resolve(target)}\n`);
+      process.exit(1);
+    }
+  }
+
+  const link = parseShareLink(target);
+  const payload = link.tier === "inline" ? link.payload : await fetchBundle(link.shareId);
+  return Buffer.from(await decryptBundle(payload, link.key));
+}
+
 async function openCommand(args: ParsedArgs): Promise<void> {
   if (args.positional.length !== 1) {
-    process.stderr.write("usage: pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new]\n");
+    process.stderr.write("usage: pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new]\n");
     process.exit(2);
   }
-  const filePath = path.resolve(args.positional[0]);
-  let raw: Buffer;
-  try {
-    raw = await fs.promises.readFile(filePath);
-  } catch {
-    process.stderr.write(`Cannot read bundle: ${filePath}\n`);
-    process.exit(1);
-  }
+  const target = args.positional[0];
+  const raw = await resolveOpenTarget(target);
 
   let bundle;
   try {
     bundle = parseBundle(raw);
   } catch (err) {
-    process.stderr.write(`${err instanceof Error ? err.message : err}: ${filePath}\n`);
+    process.stderr.write(`${err instanceof Error ? err.message : err}: ${target}\n`);
     process.exit(1);
   }
 
@@ -309,12 +403,10 @@ async function openCommand(args: ParsedArgs): Promise<void> {
     }
   }
 
-  const imageDir = path.join(os.tmpdir(), "pinpoint-reviews", `${bundle.manifest.id}-images`);
-  const restored = await deserialize({ bundle, imageDir, mode, existing, store });
-  await store.save(restored);
+  const restored = await importBundleIntoStore(bundle, mode, existing, store);
 
   process.stderr.write(`Imported review "${restored.id}" (mode: ${mode})\n`);
-  await runAnnotationSession(store, restored.id, args.port || 0);
+  await runAnnotationSession(store, restored.id, args.port || 0, args.server ?? DEFAULT_SHARE_BASE_URL);
 }
 
 function resolveDemoBundle(): string {
@@ -339,6 +431,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "review") return reviewCommand(args);
   if (args.command === "export") return exportCommand(args);
+  if (args.command === "share") return shareCommand(args);
   if (args.command === "open") return openCommand(args);
   if (args.command === "demo") return demoCommand(args);
 
@@ -347,7 +440,8 @@ async function main(): Promise<void> {
     "Commands:\n" +
     "  pinpoint review [--pair before after]... [image...] [--context \"...\"] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
-    "  pinpoint open <bundle.pinpoint.zip> [--mode replace|append|new] [--port N]\n" +
+    "  pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n" +
+    "  pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new] [--port N]\n" +
     "  pinpoint demo [--port N]\n"
   );
   process.exit(args.command ? 2 : 0);

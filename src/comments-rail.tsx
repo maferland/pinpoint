@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { PinpointAnnotation } from "./types.ts";
 import { type ReviewContext, parseContext } from "./context.ts";
-import { attachmentUrl } from "./api.ts";
+import { useAttachmentSource } from "./attachment-source.ts";
 import { AttachmentLightbox } from "./attachment-lightbox.tsx";
 
 interface CommentsRailProps {
@@ -143,7 +143,7 @@ function AgentBrief({ ctx }: { ctx: ReviewContext }) {
   );
 }
 
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
       <span className="font-mono text-[10px] text-faint shrink-0" style={{ width: 46 }}>
@@ -168,6 +168,7 @@ function CommentCard({
   const isBox = annotation.box &&
     (annotation.box.width > 7 || annotation.box.height > 7);
   const [lightboxId, setLightboxId] = useState<string | null>(null);
+  const attachmentSource = useAttachmentSource();
 
   return (
     <>
@@ -200,7 +201,7 @@ function CommentCard({
             {annotation.attachments.map((attachment) => (
               <img
                 key={attachment.id}
-                src={attachmentUrl(reviewId, attachment.id)}
+                src={attachmentSource.srcFor(reviewId, attachment.id)}
                 alt="Pasted attachment"
                 className="object-cover rounded-[5px] border border-border cursor-zoom-in"
                 style={{ width: 40, height: 40 }}

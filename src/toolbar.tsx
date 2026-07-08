@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { finalizeReview } from "./api.ts";
+import { exportReview, finalizeReview } from "./api.ts";
 import type { Preferences } from "./api.ts";
 import { IconButton, Button } from "./ui/index.tsx";
 import { SettingsPopover } from "./settings-popover.tsx";
@@ -19,6 +19,7 @@ interface ToolbarProps {
   onPrefsChange: (patch: Partial<Preferences>) => void;
   onToast: (msg: string) => void;
   onBeforeExport: () => Promise<void>;
+  onShowShare: () => void;
 }
 
 export function Toolbar({
@@ -33,6 +34,7 @@ export function Toolbar({
   onShowHelp,
   onToast,
   onBeforeExport,
+  onShowShare,
   prefsLoaded,
   onPrefsChange,
 }: ToolbarProps) {
@@ -64,16 +66,7 @@ export function Toolbar({
     }
   };
 
-  const handleExport = async () => {
-    try { await onBeforeExport(); } catch (err) { console.error("Flush before export:", err); }
-    const a = document.createElement("a");
-    a.href = `/api/review/${reviewId}/export`;
-    a.download = `${reviewId}.pinpoint.zip`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    onToast(`Exported ${reviewId}.pinpoint.zip → Downloads`);
-  };
+  const handleExport = () => exportReview(reviewId, onBeforeExport, onToast);
 
   const reviewShort = reviewId.slice(0, 7);
 
@@ -145,6 +138,10 @@ export function Toolbar({
         <DownloadIcon />
       </IconButton>
 
+      <IconButton onClick={onShowShare} title="Share this review" aria-label="Share review">
+        <ShareIcon />
+      </IconButton>
+
       <Divider />
 
       {/* Send / Looks good */}
@@ -211,6 +208,18 @@ function DownloadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
     </svg>
   );
 }

@@ -61,7 +61,7 @@ describe("export.serialize", () => {
 
     const imgBuf = imageBytes.get("images/0-screen.png");
     expect(imgBuf).toBeDefined();
-    expect(imgBuf!.equals(TEST_PNG)).toBe(true);
+    expect(Buffer.from(imgBuf!).equals(TEST_PNG)).toBe(true);
     expect(manifest.annotations).toHaveLength(1);
   });
 

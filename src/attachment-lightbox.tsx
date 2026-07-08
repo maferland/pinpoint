@@ -1,4 +1,4 @@
-import { attachmentUrl } from "./api.ts";
+import { useAttachmentSource } from "./attachment-source.ts";
 import { Modal } from "./ui/modal.tsx";
 
 interface AttachmentLightboxProps {
@@ -8,11 +8,12 @@ interface AttachmentLightboxProps {
 }
 
 export function AttachmentLightbox({ reviewId, attachmentId, onClose }: AttachmentLightboxProps) {
+  const attachmentSource = useAttachmentSource();
   return (
     <Modal onClose={onClose} maxWidth={1200} fitContent>
       <div className="relative">
         <img
-          src={attachmentUrl(reviewId, attachmentId)}
+          src={attachmentSource.srcFor(reviewId, attachmentId)}
           alt="Pasted attachment, full size"
           className="block max-w-full rounded-[18px]"
           style={{ maxHeight: "calc(100vh - 40px)" }}

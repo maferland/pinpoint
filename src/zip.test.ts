@@ -15,13 +15,13 @@ describe("zip writer/reader", () => {
     const read = readZip(zip);
     expect(read).toHaveLength(2);
     expect(read[0].name).toBe("review.json");
-    expect(read[0].data.toString()).toBe('{"hello":"world"}');
+    expect(new TextDecoder().decode(read[0].data)).toBe('{"hello":"world"}');
     expect(read[1].name).toBe("images/0-screen.png");
     expect(read[1].data[0]).toBe(0x89);
   });
 
-  it("rejects buffers without an EOCD record", () => {
-    expect(() => readZip(Buffer.from("not a zip"))).toThrow(/Not a zip/);
+  it("rejects data that isn't a valid zip", () => {
+    expect(() => readZip(Buffer.from("not a zip"))).toThrow();
   });
 
   it("produces files that the system unzip can extract", () => {

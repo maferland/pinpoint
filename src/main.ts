@@ -5,10 +5,24 @@ import http from "http";
 import path from "path";
 import { FileReviewStore } from "./store.js";
 import { PreferencesStore, type Preferences } from "./preferences.js";
-import { serialize } from "./export.js";
+import { importBundleIntoStore, parseBundle, serialize } from "./export.js";
 import { REVIEW_ID_RE } from "./util.js";
 import { sniffMimeType } from "./image-sniff.js";
+import { decryptBundle, encryptBundle } from "./share-crypto.js";
+import {
+  buildInlineLink,
+  buildSupabaseLink,
+  createShare,
+  DEFAULT_SHARE_BASE_URL,
+  downloadResponse,
+  generateResponseChannel,
+  type ResponseChannel,
+  shouldInline,
+} from "./share-transport.js";
 import type { PinpointAnnotation } from "./types.js";
+
+const DEFAULT_SHARE_TTL_DAYS = 14;
+const REMOTE_POLL_INTERVAL_MS = 3000;
 
 const DIST_DIR = import.meta.filename?.endsWith(".ts")
   ? path.join(import.meta.dirname!, "..", "dist")
@@ -39,8 +53,46 @@ function json(res: http.ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
-export function createHttpServer(store: FileReviewStore, port: number, prefs: PreferencesStore = new PreferencesStore()): PinpointHttpServer {
+export function createHttpServer(
+  store: FileReviewStore,
+  port: number,
+  prefs: PreferencesStore = new PreferencesStore(),
+  shareBaseUrl: string = process.env.PINPOINT_SHARE_URL ?? DEFAULT_SHARE_BASE_URL
+): PinpointHttpServer {
   const finalizeResolvers = new Map<string, () => void>();
+
+  function finalize(reviewId: string): void {
+    const resolver = finalizeResolvers.get(reviewId);
+    if (!resolver) return;
+    finalizeResolvers.delete(reviewId);
+    resolver();
+  }
+
+  // Armed by /api/review/:id/share so both the in-app Share button and `pinpoint review --share` complete the same way.
+  async function pollForResponse(reviewId: string, channel: ResponseChannel): Promise<void> {
+    while (finalizeResolvers.has(reviewId)) {
+      await new Promise((r) => setTimeout(r, REMOTE_POLL_INTERVAL_MS));
+      if (!finalizeResolvers.has(reviewId)) return;
+
+      let responsePayload: Uint8Array | null;
+      try {
+        responsePayload = await downloadResponse(channel.shareId);
+      } catch {
+        continue;
+      }
+      if (!responsePayload) continue;
+
+      const existing = await store.load(reviewId);
+      if (!existing || !finalizeResolvers.has(reviewId)) return;
+      const decrypted = await decryptBundle(responsePayload, channel.responseKey);
+      const bundle = parseBundle(Buffer.from(decrypted));
+      // The response bundle is the reviewer's full intended state (originals + their additions), so replace rather than append to avoid duplicating originals.
+      await importBundleIntoStore(bundle, "replace", existing, store);
+      finalize(reviewId);
+      return;
+    }
+  }
+
   const routes: Record<string, RouteHandler> = {
     "GET /review": async (_id, _req, res) => {
       const html = await fs.promises.readFile(path.join(DIST_DIR, "annotator.html"), "utf-8");
@@ -156,14 +208,42 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
       }
     },
 
+    "POST /api/review/share": async (id, req, res) => {
+      const review = await store.load(id);
+      if (!review) return json(res, 404, { error: "Review not found" });
+
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of req) {
+        size += (chunk as Buffer).length;
+        if (size > MAX_BODY) return json(res, 413, { error: "Payload too large" });
+        chunks.push(chunk as Buffer);
+      }
+      const body = chunks.length > 0 ? (JSON.parse(Buffer.concat(chunks).toString()) as { ttlDays?: number }) : {};
+      const ttlDays = body.ttlDays ?? DEFAULT_SHARE_TTL_DAYS;
+
+      try {
+        const zip = await serialize(review, store);
+        const { payload, key } = await encryptBundle(zip);
+        const channel = generateResponseChannel();
+        let link: string;
+        if (shouldInline(payload)) {
+          link = buildInlineLink(payload, key, channel, shareBaseUrl);
+        } else {
+          await createShare(channel.shareId, payload, { ttlDays });
+          link = buildSupabaseLink(key, channel, shareBaseUrl);
+        }
+        pollForResponse(id, channel).catch((err) => console.error(`Response check failed for ${id}:`, err));
+        json(res, 200, { link, ttlDays });
+      } catch (err) {
+        json(res, 500, { error: err instanceof Error ? err.message : "Share failed" });
+      }
+    },
+
     "POST /api/review/finalize": async (id, _req, res) => {
       const review = await store.load(id);
       if (!review) return json(res, 404, { error: "Review not found" });
-      const resolver = finalizeResolvers.get(id);
-      if (resolver) {
-        finalizeResolvers.delete(id);
-        resolver();
-      }
+      finalize(id);
       json(res, 200, { ok: true });
     },
   };
@@ -205,6 +285,7 @@ export function createHttpServer(store: FileReviewStore, port: number, prefs: Pr
       : url.pathname.endsWith("/annotations") ? "/annotations"
       : url.pathname.endsWith("/finalize") ? "/finalize"
       : url.pathname.endsWith("/export") ? "/export"
+      : url.pathname.endsWith("/share") ? "/share"
       : "";
     const routeKey = url.pathname.startsWith("/api/")
       ? `${req.method} /api/review${suffix}`

@@ -31,6 +31,7 @@ function renderToolbar(overrides: { onBeforeExport?: () => Promise<void> } = {})
       onShowHelp={() => {}}
       onToast={() => {}}
       onBeforeExport={onBeforeExport}
+      onShowShare={() => {}}
     />
   );
   return { onBeforeExport };

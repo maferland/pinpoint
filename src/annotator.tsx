@@ -10,7 +10,9 @@ import { CommentsRail } from "./comments-rail.tsx";
 import { Thumbnail } from "./thumbnail.tsx";
 import { Toast } from "./toast.tsx";
 import { HelpModal } from "./help-modal.tsx";
+import { ShareModal } from "./share-modal.tsx";
 import { UpdateBanner } from "./update-banner.tsx";
+import { useAnnotationEditor } from "./use-annotation-editor.ts";
 import { useIdleReminder } from "./use-idle-reminder.ts";
 import { useKeyPress } from "./use-key-press.ts";
 import {
@@ -33,8 +35,6 @@ const DEFAULT_PREFS: Preferences = {
 export function AnnotatorApp() {
   const reviewId = reviewIdFromPath(window.location.pathname);
   const [review, setReview] = useState<PinpointReview | null>(null);
-  const [annotations, setAnnotations] = useState<PinpointAnnotation[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);
   const [viewModesEquivalent, setViewModesEquivalent] = useState(false);
@@ -44,6 +44,7 @@ export function AnnotatorApp() {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [finalized, setFinalized] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const justAddedTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -53,13 +54,6 @@ export function AnnotatorApp() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
-
-  useEffect(() => {
-    if (!reviewId) return;
-    getReview(reviewId)
-      .then((data) => { setReview(data); setAnnotations(data.annotations); })
-      .catch((err) => console.error("Failed to load review:", err));
-  }, [reviewId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,14 +94,6 @@ export function AnnotatorApp() {
     ? imageUrl(reviewId, activeSlot.imageIndex)
     : "";
 
-  const activeAnnotations = !activeSlot
-    ? []
-    : activeSlot.type === "single"
-    ? annotations.filter((a) => a.imageIndex === activeSlot.imageIndex)
-    : annotations.filter(
-        (a) => a.imageIndex === activeSlot.beforeIndex || a.imageIndex === activeSlot.afterIndex
-      );
-
   const pendingAnnotations = useRef<PinpointAnnotation[] | null>(null);
   const persistAnnotations = useCallback(
     (anns: PinpointAnnotation[]) => {
@@ -135,48 +121,43 @@ export function AnnotatorApp() {
     await saveAnnotations(reviewId, snapshot);
   }, [reviewId]);
 
-  const addAnnotation = useCallback(
-    (box: { x: number; y: number; width: number; height: number }, imageIndexOverride?: number) => {
-      const fallbackIndex = activeSlot?.type === "single" ? activeSlot.imageIndex : 0;
-      const ann: PinpointAnnotation = {
-        id: crypto.randomUUID().slice(0, 12),
-        number: annotations.length + 1,
-        imageIndex: imageIndexOverride ?? fallbackIndex,
-        pin: { x: box.x, y: box.y },
-        box,
-        comment: "",
-      };
-      const updated = [...annotations, ann];
-      setAnnotations(updated);
-      setSelectedId(ann.id);
-      setJustAddedId(ann.id);
-      clearTimeout(justAddedTimer.current);
-      justAddedTimer.current = setTimeout(() => setJustAddedId(null), 400);
-      persistAnnotations(updated);
-    },
-    [annotations, activeSlot, persistAnnotations]
+  const resolveImageIndex = useCallback(
+    (imageIndexOverride?: number) => imageIndexOverride ?? (activeSlot?.type === "single" ? activeSlot.imageIndex : 0),
+    [activeSlot]
   );
+  const onAnnotationAdded = useCallback((ann: PinpointAnnotation) => {
+    setJustAddedId(ann.id);
+    clearTimeout(justAddedTimer.current);
+    justAddedTimer.current = setTimeout(() => setJustAddedId(null), 400);
+  }, []);
+  const {
+    annotations,
+    setAnnotations,
+    selectedId,
+    setSelectedId,
+    addAnnotation,
+    updateAnnotation,
+    removeAnnotation,
+  } = useAnnotationEditor([], {
+    resolveImageIndex,
+    onAdd: onAnnotationAdded,
+    onChange: persistAnnotations,
+  });
 
-  const updateAnnotation = useCallback(
-    (id: string, updates: Partial<PinpointAnnotation>) => {
-      const next = annotations.map((a) => (a.id === id ? { ...a, ...updates } : a));
-      setAnnotations(next);
-      persistAnnotations(next);
-    },
-    [annotations, persistAnnotations]
-  );
+  useEffect(() => {
+    if (!reviewId) return;
+    getReview(reviewId)
+      .then((data) => { setReview(data); setAnnotations(data.annotations); })
+      .catch((err) => console.error("Failed to load review:", err));
+  }, [reviewId, setAnnotations]);
 
-  const removeAnnotation = useCallback(
-    (id: string) => {
-      const next = annotations
-        .filter((a) => a.id !== id)
-        .map((a, i) => ({ ...a, number: i + 1 }));
-      setAnnotations(next);
-      persistAnnotations(next);
-      if (selectedId === id) setSelectedId(null);
-    },
-    [annotations, selectedId, persistAnnotations]
-  );
+  const activeAnnotations = !activeSlot
+    ? []
+    : activeSlot.type === "single"
+    ? annotations.filter((a) => a.imageIndex === activeSlot.imageIndex)
+    : annotations.filter(
+        (a) => a.imageIndex === activeSlot.beforeIndex || a.imageIndex === activeSlot.afterIndex
+      );
 
   useKeyPress("Escape", () => setSelectedId(null));
   useKeyPress(["Delete", "Backspace"], () => removeAnnotation(selectedId!), { when: !!selectedId });
@@ -217,6 +198,7 @@ export function AnnotatorApp() {
         onShowHelp={() => setShowHelp(true)}
         onToast={setToast}
         onBeforeExport={flushAnnotations}
+        onShowShare={() => setShowShare(true)}
       />
 
       <WorkspaceSubbar
@@ -314,6 +296,15 @@ export function AnnotatorApp() {
       {/* Overlays */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showShare && (
+        <ShareModal
+          reviewId={reviewId}
+          context={review?.context}
+          onClose={() => setShowShare(false)}
+          onToast={setToast}
+          onBeforeExport={flushAnnotations}
+        />
+      )}
     </div>
   );
 }

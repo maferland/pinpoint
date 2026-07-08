@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 interface ToastProps {
   message: string;
@@ -12,9 +13,10 @@ export function Toast({ message, onDismiss, durationMs = 3000 }: ToastProps) {
     return () => clearTimeout(t);
   }, [onDismiss, durationMs, message]);
 
-  return (
+  // Portalled to <body> above the modal layer (z-50) so copy/export toasts fired from inside a modal aren't trapped behind its backdrop.
+  return createPortal(
     <div
-      className="fixed bottom-6 left-1/2 z-50 animate-pp-toast flex items-center gap-2 px-4 py-2.5 rounded-full select-none"
+      className="fixed bottom-6 left-1/2 z-[60] animate-pp-toast flex items-center gap-2 px-4 py-2.5 rounded-full select-none"
       style={{
         backgroundColor: "var(--text)",
         color: "var(--bg)",
@@ -26,6 +28,7 @@ export function Toast({ message, onDismiss, durationMs = 3000 }: ToastProps) {
         <polyline points="20 6 9 17 4 12" />
       </svg>
       <span className="text-[13px] font-medium whitespace-nowrap">{message}</span>
-    </div>
+    </div>,
+    document.body
   );
 }

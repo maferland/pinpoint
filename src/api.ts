@@ -56,6 +56,36 @@ export async function finalizeReview(reviewId: string): Promise<void> {
   if (!res.ok) throw new Error(`finalizeReview failed: ${res.status}`);
 }
 
+function downloadExport(reviewId: string): void {
+  const a = document.createElement("a");
+  a.href = url(`/api/review/${reviewId}/export`);
+  a.download = `${reviewId}.pinpoint.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+export async function exportReview(
+  reviewId: string,
+  onBeforeExport: () => Promise<void>,
+  onToast: (msg: string) => void
+): Promise<void> {
+  try { await onBeforeExport(); } catch (err) { console.error("Flush before export:", err); }
+  downloadExport(reviewId);
+  onToast(`Exported ${reviewId}.pinpoint.zip → Downloads`);
+}
+
+export interface ShareResult {
+  link: string;
+  ttlDays: number;
+}
+
+export async function shareReview(reviewId: string): Promise<ShareResult> {
+  const res = await fetch(url(`/api/review/${reviewId}/share`), { method: "POST" });
+  if (!res.ok) throw new Error(`shareReview failed: ${res.status}`);
+  return res.json() as Promise<ShareResult>;
+}
+
 export type ViewMode = "fit" | "actual";
 export type CompareView = "split" | "single" | "stack";
 
