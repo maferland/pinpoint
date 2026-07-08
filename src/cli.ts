@@ -11,20 +11,21 @@
  */
 
 import fs from "fs";
-import os from "os";
 import path from "path";
 import readline from "readline";
 import { FileReviewStore, type ReviewStore } from "./store.js";
 import { createHttpServer } from "./main.js";
 import { readImageDimensions } from "./image-sniff.js";
-import { deserialize, parseBundle, serialize, type MergeMode } from "./export.js";
+import { importBundleIntoStore, parseBundle, serialize, type MergeMode } from "./export.js";
 import { decryptBundle, encryptBundle } from "./share-crypto.js";
 import {
   buildBlobLink,
   buildInlineLink,
   DEFAULT_SHARE_BASE_URL,
   downloadBlob,
+  generateResponseChannel,
   parseShareLink,
+  type ResponseChannel,
   shouldInline,
   uploadBlob,
 } from "./share-transport.js";
@@ -44,6 +45,7 @@ interface ParsedArgs {
   port: number;
   ttlDays?: number;
   server?: string;
+  share: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -56,6 +58,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let port = parseInt(process.env.PINPOINT_PORT ?? "0", 10);
   let ttlDays: number | undefined;
   let server: string | undefined = process.env.PINPOINT_SHARE_URL;
+  let share = false;
 
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
@@ -64,6 +67,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     if (arg === "--output" || arg === "-o") { output = rest[++i]; continue; }
     if (arg === "--ttl") { ttlDays = parseInt(rest[++i], 10); continue; }
     if (arg === "--server") { server = rest[++i]; continue; }
+    if (arg === "--share") { share = true; continue; }
     if (arg === "--pair" || arg === "--compare") {
       const a = rest[++i];
       const b = rest[++i];
@@ -90,7 +94,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     positional.push(arg);
   }
 
-  return { command, positional, pairs, context, output, mode, port, ttlDays, server };
+  return { command, positional, pairs, context, output, mode, port, ttlDays, server, share };
 }
 
 function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
@@ -146,13 +150,29 @@ function reviewToOutput(final: PinpointReview, store: ReviewStore): object {
 async function runAnnotationSession(
   store: FileReviewStore,
   reviewId: string,
-  port: number
+  port: number,
+  shareBaseUrl: string,
+  autoShare?: { ttlDays?: number }
 ): Promise<void> {
-  const { server, waitForFinalize } = createHttpServer(store, port);
+  const { server, waitForFinalize } = createHttpServer(store, port, undefined, shareBaseUrl);
   await new Promise<void>((resolve) => server.on("listening", resolve));
   const addr = server.address();
   const actualPort = typeof addr === "object" && addr ? addr.port : port;
   const url = `http://localhost:${actualPort}/review/${reviewId}`;
+
+  // Registered before the /share call below so the server's response-mailbox poller (armed by that
+  // same call — see main.ts) sees this review as awaiting finalize from the moment it starts polling.
+  const finalized = waitForFinalize(reviewId);
+
+  if (autoShare) {
+    const res = await fetch(`http://localhost:${actualPort}/api/review/${reviewId}/share`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ttlDays: autoShare.ttlDays }),
+    });
+    const { link } = (await res.json()) as { link: string };
+    process.stderr.write(`Share link (anyone with it can annotate this review): ${link}\n`);
+  }
 
   process.stderr.write(`Opening ${url}\n`);
   openBrowser(url);
@@ -162,7 +182,7 @@ async function runAnnotationSession(
     process.exit(1);
   }, FINALIZE_TIMEOUT_MS);
 
-  await waitForFinalize(reviewId);
+  await finalized;
   clearTimeout(timeout);
 
   const final = await store.load(reviewId);
@@ -236,7 +256,8 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
   };
   await store.save(review);
 
-  await runAnnotationSession(store, reviewId, args.port || 0);
+  const shareBaseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
+  await runAnnotationSession(store, reviewId, args.port || 0, shareBaseUrl, args.share ? { ttlDays: args.ttlDays } : undefined);
 }
 
 async function exportCommand(args: ParsedArgs): Promise<void> {
@@ -264,6 +285,28 @@ async function exportCommand(args: ParsedArgs): Promise<void> {
   process.exit(0);
 }
 
+interface ShareResult {
+  link: string;
+  channel: ResponseChannel;
+}
+
+async function createShareLink(
+  review: PinpointReview,
+  store: ReviewStore,
+  baseUrl: string,
+  ttlDays: number | undefined
+): Promise<ShareResult> {
+  const zip = await serialize(review, store);
+  const { payload, key } = await encryptBundle(zip);
+  const channel = generateResponseChannel();
+
+  const link = shouldInline(payload)
+    ? buildInlineLink(payload, key, channel, baseUrl)
+    : buildBlobLink(await uploadBlob(payload, { baseUrl, ttlDays }), key, channel, baseUrl);
+
+  return { link, channel };
+}
+
 async function shareCommand(args: ParsedArgs): Promise<void> {
   if (args.positional.length !== 1) {
     process.stderr.write("usage: pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n");
@@ -277,17 +320,8 @@ async function shareCommand(args: ParsedArgs): Promise<void> {
     process.exit(1);
   }
 
-  const zip = await serialize(review, store);
-  const { payload, key } = await encryptBundle(zip);
   const baseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
-
-  let link: string;
-  if (shouldInline(payload)) {
-    link = buildInlineLink(payload, key, baseUrl);
-  } else {
-    const blobUrl = await uploadBlob(payload, { baseUrl, ttlDays: args.ttlDays });
-    link = buildBlobLink(blobUrl, key, baseUrl);
-  }
+  const { link } = await createShareLink(review, store, baseUrl, args.ttlDays);
 
   process.stderr.write("Anyone with this link can decrypt the review. Send it over a trusted channel.\n");
   process.stdout.write(link + "\n");
@@ -365,12 +399,10 @@ async function openCommand(args: ParsedArgs): Promise<void> {
     }
   }
 
-  const imageDir = path.join(os.tmpdir(), "pinpoint-reviews", `${bundle.manifest.id}-images`);
-  const restored = await deserialize({ bundle, imageDir, mode, existing, store });
-  await store.save(restored);
+  const restored = await importBundleIntoStore(bundle, mode, existing, store);
 
   process.stderr.write(`Imported review "${restored.id}" (mode: ${mode})\n`);
-  await runAnnotationSession(store, restored.id, args.port || 0);
+  await runAnnotationSession(store, restored.id, args.port || 0, args.server ?? DEFAULT_SHARE_BASE_URL);
 }
 
 function resolveDemoBundle(): string {

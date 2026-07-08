@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import type { AnnotationAttachment, ImageInfo, PinpointAnnotation, PinpointReview } from "./types.js";
 import { generateId } from "./util.js";
@@ -47,7 +48,7 @@ function safeFilename(name: string): string {
   return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export async function serialize(review: PinpointReview, store: ReviewStore): Promise<Buffer> {
+export async function serialize(review: PinpointReview, store: ReviewStore): Promise<Uint8Array> {
   const images: BundleImage[] = [];
   const imageEntries: ZipEntry[] = [];
 
@@ -99,10 +100,10 @@ function isManifest(value: unknown): value is BundleManifest {
 
 export interface ParsedBundle {
   manifest: BundleManifest;
-  imageBytes: Map<string, Buffer>;
+  imageBytes: Map<string, Uint8Array>;
 }
 
-export function parseBundle(buf: Buffer): ParsedBundle {
+export function parseBundle(buf: Uint8Array): ParsedBundle {
   let entries: ZipEntry[];
   try {
     entries = readZip(buf);
@@ -115,13 +116,13 @@ export function parseBundle(buf: Buffer): ParsedBundle {
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(manifestEntry.data.toString("utf-8"));
+    parsed = JSON.parse(new TextDecoder().decode(manifestEntry.data));
   } catch {
     throw new Error(`${MANIFEST_NAME} is not valid JSON`);
   }
   if (!isManifest(parsed)) throw new Error("Not a pinpoint-export v1.0 bundle");
 
-  const imageBytes = new Map<string, Buffer>();
+  const imageBytes = new Map<string, Uint8Array>();
   for (const entry of entries) {
     if (entry.name === MANIFEST_NAME) continue;
     imageBytes.set(entry.name, entry.data);
@@ -144,7 +145,7 @@ export interface DeserializeOptions {
 async function restoreAttachments(
   annotations: PinpointAnnotation[],
   targetReviewId: string,
-  imageBytes: Map<string, Buffer>,
+  imageBytes: Map<string, Uint8Array>,
   store: ReviewStore
 ): Promise<PinpointAnnotation[]> {
   const result: PinpointAnnotation[] = [];
@@ -158,7 +159,7 @@ async function restoreAttachments(
       const zipName = `${ATTACHMENT_PREFIX}${ann.id}-${attachment.id}`;
       const bytes = imageBytes.get(zipName);
       if (!bytes) throw new Error(`Bundle missing attachment: ${zipName}`);
-      const saved = await store.saveAttachment(targetReviewId, bytes);
+      const saved = await store.saveAttachment(targetReviewId, Buffer.from(bytes));
       restored.push({ id: saved.id, width: attachment.width, height: attachment.height });
     }
     result.push({ ...ann, attachments: restored });
@@ -210,4 +211,17 @@ export async function deserialize(opts: DeserializeOptions): Promise<PinpointRev
     createdAt: mode === "new" ? new Date().toISOString() : manifest.createdAt,
     annotations: restoredAnnotations,
   };
+}
+
+// Shared by `pinpoint open` and the share round-trip response handler: merge a parsed bundle into the store and persist it.
+export async function importBundleIntoStore(
+  bundle: ParsedBundle,
+  mode: MergeMode,
+  existing: PinpointReview | null,
+  store: ReviewStore
+): Promise<PinpointReview> {
+  const imageDir = path.join(os.tmpdir(), "pinpoint-reviews", `${bundle.manifest.id}-images`);
+  const merged = await deserialize({ bundle, imageDir, mode, existing, store });
+  await store.save(merged);
+  return merged;
 }

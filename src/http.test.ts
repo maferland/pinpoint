@@ -201,6 +201,43 @@ describe("createHttpServer", () => {
     });
   });
 
+  describe("POST /api/review/:id/share", () => {
+    it("returns an inline link that decrypts back to the review's zip bundle", async () => {
+      const { parseShareLink } = await import("./share-transport.js");
+      const { decryptBundle } = await import("./share-crypto.js");
+      const { parseBundle } = await import("./export.js");
+
+      const res = await fetch(`${baseUrl}/api/review/test-review/share`, { method: "POST" });
+      expect(res.status).toBe(200);
+      const { link, ttlDays } = await res.json() as { link: string; ttlDays: number };
+      expect(ttlDays).toBe(14);
+
+      const parsed = parseShareLink(link);
+      expect(parsed.tier).toBe("inline");
+      if (parsed.tier !== "inline") throw new Error("expected inline");
+
+      const zip = Buffer.from(await decryptBundle(parsed.payload, parsed.key));
+      const { manifest } = parseBundle(zip);
+      expect(manifest.id).toBe("test-review");
+    });
+
+    it("respects a custom ttlDays in the request body", async () => {
+      const res = await fetch(`${baseUrl}/api/review/test-review/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ttlDays: 3 }),
+      });
+      expect(res.status).toBe(200);
+      const { ttlDays } = await res.json() as { ttlDays: number };
+      expect(ttlDays).toBe(3);
+    });
+
+    it("returns 404 for missing review", async () => {
+      const res = await fetch(`${baseUrl}/api/review/nope/share`, { method: "POST" });
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe("POST /api/review/:id/finalize", () => {
     it("resolves waitForFinalize promise", async () => {
       await store.save(makeReview("finalize-1"));

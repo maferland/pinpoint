@@ -4,9 +4,12 @@ import {
   buildBlobLink,
   buildInlineLink,
   downloadBlob,
+  downloadResponse,
+  generateResponseChannel,
   parseShareLink,
   shouldInline,
   uploadBlob,
+  uploadResponse,
 } from "./share-transport.js";
 
 describe("shouldInline", () => {
@@ -19,22 +22,35 @@ describe("shouldInline", () => {
   });
 });
 
+describe("generateResponseChannel", () => {
+  it("produces a unique shareId and responseKey each time", () => {
+    const a = generateResponseChannel();
+    const b = generateResponseChannel();
+    expect(a.shareId).not.toBe(b.shareId);
+    expect(a.responseKey).not.toBe(b.responseKey);
+  });
+});
+
 describe("share link round-trip", () => {
-  it("builds and parses an inline link", async () => {
+  it("builds and parses an inline link, carrying the response channel", async () => {
     const { payload, key } = await encryptBundle(new TextEncoder().encode("hi"));
-    const link = buildInlineLink(payload, key, "https://example.test");
+    const channel = generateResponseChannel();
+    const link = buildInlineLink(payload, key, channel, "https://example.test");
     const parsed = parseShareLink(link);
     expect(parsed.tier).toBe("inline");
     if (parsed.tier !== "inline") throw new Error("expected inline");
     expect(parsed.key).toBe(key);
+    expect(parsed.shareId).toBe(channel.shareId);
+    expect(parsed.responseKey).toBe(channel.responseKey);
     expect(Buffer.from(parsed.payload).equals(Buffer.from(payload))).toBe(true);
   });
 
-  it("builds and parses a blob link", () => {
+  it("builds and parses a blob link, carrying the response channel", () => {
     const blobUrl = "https://abc123.public.blob.vercel-storage.com/share/171-xyz.bin";
-    const link = buildBlobLink(blobUrl, "the-key", "https://example.test");
+    const channel = generateResponseChannel();
+    const link = buildBlobLink(blobUrl, "the-key", channel, "https://example.test");
     const parsed = parseShareLink(link);
-    expect(parsed).toEqual({ tier: "blob", blobUrl, key: "the-key" });
+    expect(parsed).toEqual({ tier: "blob", blobUrl, key: "the-key", ...channel });
   });
 
   it("rejects a link with no fragment", () => {
@@ -42,11 +58,11 @@ describe("share link round-trip", () => {
   });
 
   it("rejects a link that isn't a share link", () => {
-    expect(() => parseShareLink("https://example.test/other#t=i&d=a&k=b")).toThrow();
+    expect(() => parseShareLink("https://example.test/other#t=i&d=a&k=b&s=c&rk=d")).toThrow();
   });
 
   it("rejects a link with an unknown tier marker", () => {
-    expect(() => parseShareLink("https://example.test/s#t=x&d=a&k=b")).toThrow(/Unknown share link tier/);
+    expect(() => parseShareLink("https://example.test/s#t=x&d=a&k=b&s=c&rk=d")).toThrow(/Unknown share link tier/);
   });
 
   it("rejects a link missing required fragment fields", () => {
@@ -83,5 +99,30 @@ describe("blob upload/download", () => {
   it("throws a friendly error on 404", async () => {
     global.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
     await expect(downloadBlob("https://blob.test/missing")).rejects.toThrow(/expired/);
+  });
+});
+
+describe("response mailbox", () => {
+  const originalFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("uploads a response payload", async () => {
+    global.fetch = mock(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as unknown as typeof fetch;
+    await expect(uploadResponse("share-1", new Uint8Array([1, 2]), "https://example.test")).resolves.toBeUndefined();
+  });
+
+  it("returns null when no response has been submitted yet", async () => {
+    global.fetch = mock(async () => new Response("not found", { status: 404 })) as unknown as typeof fetch;
+    const result = await downloadResponse("share-1", "https://example.test");
+    expect(result).toBeNull();
+  });
+
+  it("returns the response bytes once submitted", async () => {
+    const bytes = new Uint8Array([5, 6, 7]);
+    global.fetch = mock(async () => new Response(bytes, { status: 200 })) as unknown as typeof fetch;
+    const result = await downloadResponse("share-1", "https://example.test");
+    expect(result && Buffer.from(result).equals(Buffer.from(bytes))).toBe(true);
   });
 });

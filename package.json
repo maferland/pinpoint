@@ -37,6 +37,9 @@
     "tailwindcss": "^4.1.0",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",
-    "vite-plugin-singlefile": "^2.3.0"
+    "vite-plugin-singlefile": "^2.3.3"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
   }
 }

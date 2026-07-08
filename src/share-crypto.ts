@@ -6,12 +6,24 @@ function asBufferSource(bytes: Uint8Array): BufferSource {
   return bytes as BufferSource;
 }
 
+const CHUNK_SIZE = 0x8000; // avoid blowing the call stack on String.fromCharCode(...bytes) for large arrays
+
+// btoa/atob are available in Node, Bun, and browsers alike — this file has no
+// runtime-specific dependency so it can run unmodified in the share-view bundle.
 export function toBase64Url(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("base64url");
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK_SIZE));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 export function fromBase64Url(value: string): Uint8Array {
-  return new Uint8Array(Buffer.from(value, "base64url"));
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 export interface EncryptedBundle {
@@ -22,8 +34,12 @@ export interface EncryptedBundle {
   key: string;
 }
 
-export async function encryptBundle(bytes: Uint8Array): Promise<EncryptedBundle> {
-  const rawKey = crypto.getRandomValues(new Uint8Array(32));
+export function generateKey(): string {
+  return toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+export async function encryptWithKey(bytes: Uint8Array, key: string): Promise<Uint8Array> {
+  const rawKey = fromBase64Url(key);
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const cryptoKey = await crypto.subtle.importKey("raw", asBufferSource(rawKey), ALGORITHM, false, ["encrypt"]);
   const ciphertext = await crypto.subtle.encrypt({ name: ALGORITHM, iv }, cryptoKey, asBufferSource(bytes));
@@ -31,8 +47,13 @@ export async function encryptBundle(bytes: Uint8Array): Promise<EncryptedBundle>
   const payload = new Uint8Array(iv.length + ciphertext.byteLength);
   payload.set(iv, 0);
   payload.set(new Uint8Array(ciphertext), iv.length);
+  return payload;
+}
 
-  return { payload, key: toBase64Url(rawKey) };
+export async function encryptBundle(bytes: Uint8Array): Promise<EncryptedBundle> {
+  const key = generateKey();
+  const payload = await encryptWithKey(bytes, key);
+  return { payload, key };
 }
 
 export async function decryptBundle(payload: Uint8Array, key: string): Promise<Uint8Array> {
