@@ -35,6 +35,10 @@ import { resolveSlots } from "./types.js";
 
 const FINALIZE_TIMEOUT_MS = 96 * 60 * 60 * 1000;
 
+// Cross-network share is shipped dark: the subcommand and --share flag stay inert
+// unless PINPOINT_SHARE=1, so install.sh builds carry the code without exposing it.
+const SHARE_ENABLED = process.env.PINPOINT_SHARE === "1";
+
 interface ParsedArgs {
   command: string;
   positional: string[];
@@ -257,7 +261,8 @@ async function reviewCommand(args: ParsedArgs): Promise<void> {
   await store.save(review);
 
   const shareBaseUrl = args.server ?? DEFAULT_SHARE_BASE_URL;
-  await runAnnotationSession(store, reviewId, args.port || 0, shareBaseUrl, args.share ? { ttlDays: args.ttlDays } : undefined);
+  const autoShare = args.share && SHARE_ENABLED ? { ttlDays: args.ttlDays } : undefined;
+  await runAnnotationSession(store, reviewId, args.port || 0, shareBaseUrl, autoShare);
 }
 
 async function exportCommand(args: ParsedArgs): Promise<void> {
@@ -431,7 +436,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command === "review") return reviewCommand(args);
   if (args.command === "export") return exportCommand(args);
-  if (args.command === "share") return shareCommand(args);
+  if (args.command === "share" && SHARE_ENABLED) return shareCommand(args);
   if (args.command === "open") return openCommand(args);
   if (args.command === "demo") return demoCommand(args);
 
@@ -440,8 +445,8 @@ async function main(): Promise<void> {
     "Commands:\n" +
     "  pinpoint review [--pair before after]... [image...] [--context \"...\"] [--port N]\n" +
     "  pinpoint export <reviewId> [--output FILE|-]\n" +
-    "  pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n" +
-    "  pinpoint open <bundle.pinpoint.zip|share-link> [--mode replace|append|new] [--port N]\n" +
+    (SHARE_ENABLED ? "  pinpoint share <reviewId> [--ttl DAYS] [--server URL]\n" : "") +
+    `  pinpoint open <bundle.pinpoint.zip${SHARE_ENABLED ? "|share-link" : ""}> [--mode replace|append|new] [--port N]\n` +
     "  pinpoint demo [--port N]\n"
   );
   process.exit(args.command ? 2 : 0);

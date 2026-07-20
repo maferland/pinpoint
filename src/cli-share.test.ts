@@ -77,7 +77,7 @@ describe("pinpoint share/open cli", () => {
     imagePath = path.join(dir, "test.png");
     fs.writeFileSync(imagePath, TEST_PNG);
     relay = await startMockRelay();
-    relayEnv = { PINPOINT_SUPABASE_URL: relay.baseUrl };
+    relayEnv = { PINPOINT_SUPABASE_URL: relay.baseUrl, PINPOINT_SHARE: "1" };
   });
 
   afterEach(async () => {
@@ -168,6 +168,19 @@ describe("pinpoint share/open cli", () => {
     const cli = spawnCli(["open", `https://example.test/s#${fragment.toString()}`], relayEnv);
     const code = await cli.exited;
     expect(code).toBe(1);
+  }, 10000);
+
+  it("share is inert unless PINPOINT_SHARE=1", async () => {
+    const reviewCli = spawnCli(["review", imagePath]);
+    const { port, reviewId } = await waitForReady(() => reviewCli.stderr);
+    await fetch(`http://localhost:${port}/api/review/${reviewId}/finalize`, { method: "POST" });
+    await reviewCli.exited;
+
+    const shareCli = spawnCli(["share", reviewId], { PINPOINT_SUPABASE_URL: relay.baseUrl });
+    const code = await shareCli.exited;
+    expect(code).toBe(2);
+    expect(shareCli.stdout.trim()).toBe("");
+    expect(relay.createShareCount).toBe(0);
   }, 10000);
 
   it("respects PINPOINT_SHARE_URL as the default link host", async () => {

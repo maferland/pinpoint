@@ -1,3 +1,7 @@
+## [v0.13.0]
+
+- **Pinpoint now plugs in through the CLI and the `/pinpoint:review` slash command; the MCP server is gone.** If you had it wired in as an MCP server, point your setup at the `pinpoint` binary or the slash command instead.
+
 ## [v0.12.0]
 
 - **Paste a screenshot straight into a comment.** Clipboard images show up as a removable thumbnail beneath the text, with a click-to-zoom preview.

@@ -11,6 +11,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), viteSingleFile()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __SHARE_ENABLED__: JSON.stringify(process.env.PINPOINT_SHARE === "1"),
   },
   build: {
     sourcemap: isDevelopment ? "inline" : undefined,
