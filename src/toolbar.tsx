@@ -5,6 +5,9 @@ import { IconButton, Button } from "./ui/index.tsx";
 import { SettingsPopover } from "./settings-popover.tsx";
 import { parseContext } from "./context.ts";
 
+declare const __SHARE_ENABLED__: boolean;
+const SHARE_ENABLED = typeof __SHARE_ENABLED__ !== "undefined" ? __SHARE_ENABLED__ : false;
+
 interface ToolbarProps {
   reviewId: string;
   annotationCount: number;
@@ -138,9 +141,11 @@ export function Toolbar({
         <DownloadIcon />
       </IconButton>
 
-      <IconButton onClick={onShowShare} title="Share this review" aria-label="Share review">
-        <ShareIcon />
-      </IconButton>
+      {SHARE_ENABLED && (
+        <IconButton onClick={onShowShare} title="Share this review" aria-label="Share review">
+          <ShareIcon />
+        </IconButton>
+      )}
 
       <Divider />
 
