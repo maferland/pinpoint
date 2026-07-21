@@ -12,8 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Probe critical URLs
+        # The deploy's target_url is a per-deployment *.vercel.app alias gated by
+        # Deployment Protection (302 -> SSO); probe the public custom domain.
         env:
-          BASE_URL: ${{ github.event.deployment_status.target_url }}
+          BASE_URL: https://pinpoint.maferland.com
         run: |
           set -euo pipefail
           for path in "/" "/try" "/review/try-demo" "/try-sw.js"; do
