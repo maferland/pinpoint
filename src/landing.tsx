@@ -293,8 +293,8 @@ function Agents() {
       prompt: false,
     },
     {
-      title: "Any MCP agent",
-      body: "The install registers an MCP server. Any MCP-capable agent can use it directly.",
+      title: "Any agent",
+      body: "Anything that can run a shell command can drive the CLI and read the JSON it prints.",
       code: undefined,
     },
     {
@@ -305,7 +305,7 @@ function Agents() {
   ];
 
   return (
-    <Section id="agents" title="Use it with your agent" lede="Two protocols. Pick whichever fits.">
+    <Section id="agents" title="Use it with your agent" lede="Slash command or shell. Pick whichever fits.">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {CARDS.map((c) => (
           <div
