@@ -44,7 +44,7 @@ The portable session zip is the new piece. Visual review without locking everyon
 curl -fsSL https://raw.githubusercontent.com/maferland/pinpoint/main/install.sh | bash
 ```
 
-Works with Claude Code (slash command) or anything that speaks MCP (Cursor, Aider, raw API).
+Works with Claude Code (slash command) or any agent that can run a command (Cursor, Aider, raw API).
 
 ---
 

@@ -1,6 +1,6 @@
 # Reddit posts
 
-Two versions: one for r/ClaudeAI (Claude-specific audience), one for r/ChatGPTPro / r/LocalLLaMA (broader, MCP-curious audience).
+Two versions: one for r/ClaudeAI (Claude-specific audience), one for r/ChatGPTPro / r/LocalLLaMA (broader, any-agent audience).
 
 ---
 
@@ -32,30 +32,27 @@ MIT, built with TypeScript + Bun + React. Built on the same architecture pattern
 
 ---
 
-## r/ChatGPTPro or r/LocalLLaMA (broader, MCP-focused)
+## r/ChatGPTPro or r/LocalLLaMA (broader, any-agent)
 
-**Title:** Pinpoint — visual annotation via MCP, works with any agent that speaks the protocol
+**Title:** Pinpoint — click-to-annotate screenshots, works with any agent that can run a CLI
 
 If you've ever wanted your coding agent to act on visual feedback instead of prose ("the button is misaligned" vs "the second item in the grid has 8px too much padding on the right"), Pinpoint might be useful.
 
-It exposes an MCP server with four tools:
+It ships a `pinpoint` CLI that any agent can shell out to. The core command:
 
-- `create_review` — opens a browser UI, returns a session id
-- `add_image` — append another screenshot to an existing review
-- `get_annotations` — read the structured feedback back
-- `list_reviews` — list active sessions
+`pinpoint review <image>...` — opens a browser UI, blocks until the user hits Send, then prints the annotations as JSON on stdout.
 
-The agent calls `create_review`, the browser opens for the user, the user pins/boxes regions and adds comments, the agent reads `get_annotations` and acts on each one. Coordinates are percentages so they're resolution-independent.
+The agent runs the command, the browser opens for the user, the user pins/boxes regions and adds comments, the agent reads the JSON and acts on each one. Coordinates are percentages so they're resolution-independent.
 
 What's new in v0.6.0: a session exports to a `.pinpoint.zip` you can share. The recipient doesn't need to use the same agent. They just need Pinpoint installed.
 
-I've tested it with Claude Code (slash command wrapper) and the MCP server should work with any MCP-capable agent. If you wire it up to Cursor, Aider, or anything else, I'd love to hear how it goes.
+I've tested it with Claude Code (the slash command wraps the CLI). Any agent that can run a shell command should work the same way. If you wire it up to Cursor, Aider, or anything else, I'd love to hear how it goes.
 
 Repo: https://github.com/maferland/pinpoint
 
 ## Notes for posting
 
 - Reddit dislikes self-promotion. Lead with the problem, not the product. The first paragraph should make someone nod before they see a link.
-- Check each subreddit's self-promo rules. r/ClaudeAI is pretty open. r/LocalLLaMA is stricter; frame it as "tool that uses MCP" rather than "my project."
+- Check each subreddit's self-promo rules. r/ClaudeAI is pretty open. r/LocalLLaMA is stricter; frame it as "a tool for agent workflows" rather than "my project."
 - Reply in the comments to every question for the first 24 hours. The algorithm rewards engagement.
 - If someone asks about privacy / what it sends where: the server is fully local, no telemetry, screenshots never leave your machine unless you export and share the zip yourself.

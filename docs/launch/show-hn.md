@@ -18,12 +18,12 @@ Pinpoint replaces that prose with pins and boxes on a screenshot. You run a slas
 
 The mechanism is borrowed from Plannotator: a slash command shells out to a CLI binary, the CLI blocks until you signal done, the agent picks up structured stdout. What's new is that visual review is now a first-class step in the loop, and the session is portable.
 
-That portability is the part I'm proudest of. A review packages into a `.pinpoint.zip` — manifest plus raw image bytes. You can hand it to a designer, a PM, anyone. They open it locally, add their pins, send it back. You re-import. None of that requires them to install the same agent you're using, or set up the same project, or even know what MCP is.
+That portability is the part I'm proudest of. A review packages into a `.pinpoint.zip` — manifest plus raw image bytes. You can hand it to a designer, a PM, anyone. They open it locally, add their pins, send it back. You re-import. None of that requires them to install the same agent you're using, or set up the same project.
 
 Two ways to use it:
 
 1. Claude Code slash command. `/pinpoint:review /tmp/screenshot.png`. Easiest if you're already in that ecosystem.
-2. MCP server. Works with any MCP-capable agent (Cursor, Aider, raw API, anything that speaks MCP). Same browser UI, same return shape.
+2. Direct CLI. Any agent that can run a shell command (Cursor, Aider, raw API, anything) calls `pinpoint review` and reads the JSON. Same browser UI, same return shape.
 
 There's also a `pinpoint open assets/demo.pinpoint.zip` you can run right after install to see the UI without taking your own screenshot first.
 

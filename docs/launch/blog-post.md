@@ -36,7 +36,7 @@ In the old version, I'd send a screenshot in Slack and ask "anything off about t
 
 The new version: I click an Export button in the toolbar. Out comes a `.pinpoint.zip`, which is a small archive with a `review.json` manifest and the raw image bytes. I send the file. The recipient runs `pinpoint open the-file.pinpoint.zip` and gets the same browser UI I had, with my pins already on the screenshot. They add their own pins, hit Send, export, send back. I open their file. Claude sees both sets and acts on the union.
 
-What I like about this is that nobody else has to use Claude. Or know what MCP is. Or have a Claude account. They install Pinpoint (one curl, requires Bun) and they can participate. Visual review is decoupled from whatever agent is doing the fixing.
+What I like about this is that nobody else has to use Claude. Or have a Claude account. They install Pinpoint (one curl, requires Bun) and they can participate. Visual review is decoupled from whatever agent is doing the fixing.
 
 ## Why I'm telling you
 
@@ -54,7 +54,7 @@ pinpoint open assets/demo.pinpoint.zip
 
 That opens a real session in your browser with a few starter pins on a real screenshot. Edit them, draw your own, hit Send, see the JSON. It's the fastest way to feel the loop.
 
-If you use Claude Code, the slash command `/pinpoint:review <image>` is the easiest entry point. If you use Cursor, Aider, or anything else that speaks MCP, the MCP server registers with the same `pinpoint` command and exposes four tools (`create_review`, `add_image`, `get_annotations`, `list_reviews`).
+If you use Claude Code, the slash command `/pinpoint:review <image>` is the easiest entry point. Any other agent that can run a shell command drives the same `pinpoint` binary directly and reads the JSON it prints back.
 
 If you build it into your workflow and find rough edges, open an issue. If you ship a Pinpoint session to a designer and it actually closes a loop that used to take three Slack messages, send me a note. I want to hear it.
 

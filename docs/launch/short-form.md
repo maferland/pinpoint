@@ -4,7 +4,7 @@ For Slack channels, Discord servers, LinkedIn, and anywhere you want a one-parag
 
 ## One-liner (Slack / Discord)
 
-Just shipped v0.6.0 of Pinpoint, a slash command for visual feedback to your coding agent. New in this release: a session exports as a `.pinpoint.zip` you can hand to a designer or PM and re-import with their pins. Works with Claude Code or any MCP-capable agent. https://github.com/maferland/pinpoint
+Just shipped v0.6.0 of Pinpoint, a slash command for visual feedback to your coding agent. New in this release: a session exports as a `.pinpoint.zip` you can hand to a designer or PM and re-import with their pins. Works with Claude Code or any agent that can run a command. https://github.com/maferland/pinpoint
 
 ## LinkedIn (slightly more buttoned-up)
 
@@ -14,7 +14,7 @@ I built Pinpoint to fix that loop. Slash command opens your browser, you click o
 
 v0.6.0 adds a portable session format. Export a review as a `.pinpoint.zip`, share with anyone, re-import with their annotations. Designers and PMs can participate in the visual review without installing the same agent.
 
-Works with Claude Code (slash command) and any MCP-capable agent (Cursor, Aider, etc.).
+Works with Claude Code (slash command) and any agent that can run a command (Cursor, Aider, etc.).
 
 https://github.com/maferland/pinpoint
 
