@@ -3,5 +3,6 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": ".",
-  "rewrites": [{ "source": "/review/try-demo", "destination": "/try.html" }]
+  "rewrites": [{ "source": "/try", "destination": "/try.html" }],
+  "redirects": [{ "source": "/review/try-demo", "destination": "/try", "permanent": true }]
 }

@@ -7,5 +7,4 @@ export async function installTryDemoMocks(): Promise<void> {
     await navigator.serviceWorker.register("/try-sw.js");
     await navigator.serviceWorker.ready;
   }
-  history.replaceState(null, "", `/review/${TRY_DEMO_ID}`);
 }

@@ -32,8 +32,10 @@ const DEFAULT_PREFS: Preferences = {
   idleReminderDelaySec: 60,
 };
 
-export function AnnotatorApp() {
-  const reviewId = reviewIdFromPath(window.location.pathname);
+export function AnnotatorApp({ reviewId: reviewIdProp }: { reviewId?: string } = {}) {
+  // The CLI serves each review at /review/:id, so the id comes from the URL.
+  // The static demo has no such route — it passes the id in directly.
+  const reviewId = reviewIdProp ?? reviewIdFromPath(window.location.pathname);
   const [review, setReview] = useState<PinpointReview | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const [activeSlotIndex, setActiveSlotIndex] = useState(0);

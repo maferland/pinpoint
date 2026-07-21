@@ -119,7 +119,7 @@ function Hero() {
           <Button
             variant="surface"
             size="md"
-            onClick={() => { window.location.href = "/try.html"; }}
+            onClick={() => { window.location.href = "/try"; }}
           >
             Try the demo
           </Button>

@@ -1,0 +1,26 @@
+name: Smoke
+
+# Probe the real deployed artifact once Vercel reports a production success.
+# The bun and Playwright suites run the CLI server, never the static site's
+# rewrites/redirects — this is the only check that exercises them.
+on:
+  deployment_status:
+
+jobs:
+  probe:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe critical URLs
+        env:
+          BASE_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          set -euo pipefail
+          for path in "/" "/try" "/review/try-demo" "/try-sw.js"; do
+            code=$(curl -sSL -o /dev/null -w "%{http_code}" "$BASE_URL$path")
+            echo "$path -> $code"
+            if [ "$code" != "200" ]; then
+              echo "::error::$path returned $code (expected 200)"
+              exit 1
+            fi
+          done
